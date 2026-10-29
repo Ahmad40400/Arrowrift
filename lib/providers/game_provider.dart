@@ -17,6 +17,8 @@ class GameProvider extends ChangeNotifier {
   int classicUnlockedLevel = 1;
   int proUnlockedLevel = 1;
   int gridSize = 6;
+  // Boss level se pehle wala normal grid (events/time calc ke liye)
+  int baseGridSize = 6;
   bool isLevelComplete = false;
   bool isGameOver = false;
   bool isLevelFailed = false;
@@ -890,9 +892,21 @@ class GameProvider extends ChangeNotifier {
     isTimeFrozen = false;
 
     if (isProMode) {
-      gridSize = min(20, 15 + (level ~/ 20));
+      // Daily challenge ka purana formula same rakha hai (koi change nahi).
+      // Normal Pro levels: 15 -> 20 poore 500 levels par barabar phailta hai.
+      gridSize = isDailyChallenge
+          ? min(20, 15 + (level ~/ 20))
+          : getProGridSizeForLevel(level);
     } else {
       gridSize = getGridSizeForLevel(level);
+    }
+    baseGridSize = gridSize;
+
+    // BOSS LEVEL (har 100th level, daily challenge mein nahi):
+    // Classic mein grid +2 (max 20) aur chhote arrows => ~2x arrows.
+    // Pro mein grid pehle hi bara hai, isliye sirf chhote arrows => ~1.5x.
+    if (isBossNow && !isProMode) {
+      gridSize = min(20, gridSize + 2);
     }
 
     _generate(level);
@@ -902,11 +916,32 @@ class GameProvider extends ChangeNotifier {
     timeLeft = totalTime;
   }
 
+  // ---------------- BOSS LEVELS ----------------
+  // Har 100th level (100, 200, 300 ...) boss hai. Freeze allowed nahi.
+  static bool isBossLevel(int level) => level > 0 && level % 100 == 0;
+
+  bool get isBossNow => !isDailyChallenge && isBossLevel(currentLevel);
+
+  /// Pro grid: level 1 par 15, level 500 par 20 (15,16,17,18,19,20 barabar steps).
+  int getProGridSizeForLevel(int level) {
+    final int l = level.clamp(1, maxProLevel).toInt();
+    return min(20, 15 + ((l - 1) * 6) ~/ maxProLevel);
+  }
+
   int _timeForCurrentBoard() {
     if (isProMode) {
+      // Per-arrow time hai, isliye boss ke ziada arrows ko khud time mil jata hai.
       return (arrows.length * 0.62).ceil() + 4;
     }
-    return getLevelTime(currentLevel) + 2 + (currentLevel ~/ 100);
+    final int normalTime = getLevelTime(currentLevel) + 2 + (currentLevel ~/ 100);
+    if (isBossNow) {
+      // Normal board mein ~0.25 * n * n arrows hote hain. Boss ke arrows us
+      // hisaab se barhe hain, to time bhi barabar scale hota hai (same pace).
+      final double expected = baseGridSize * baseGridSize * 0.25;
+      final int scaled = (arrows.length * normalTime / expected).ceil();
+      return max(normalTime, scaled);
+    }
+    return normalTime;
   }
 
   int getLevelTime(int level) {
@@ -1173,6 +1208,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   void useTimeFreeze() {
+    if (isBossNow) return; // Boss level par freeze allowed nahi
     if (isTimeFrozen || isLevelComplete || isGameOver || isLevelFailed) return;
     if (freezeInventory > 0)
       freezeInventory--;
@@ -1262,7 +1298,10 @@ class GameProvider extends ChangeNotifier {
     final rnd = Random(level * 7919 + 104729 + n * 1000);
     owner = List.generate(n, (_) => List<int>.filled(n, -1));
     arrows = [];
-    final int maxLen = isProMode ? 6 : 5;
+    // Boss: chhote arrows (2-3 cells) => board par bohot ziada arrows.
+    final bool boss = isBossNow;
+    final int minLen = boss ? 2 : 3;
+    final int maxLen = boss ? 3 : (isProMode ? 6 : 5);
 
     bool rayClear(List<GridCell> path) {
       final head = path[path.length - 1];
@@ -1312,7 +1351,9 @@ class GameProvider extends ChangeNotifier {
     bool tryPlace(int x, int y, int attempts) {
       for (int a = 0; a < attempts; a++) {
         final int target =
-            3 + (pow(rnd.nextDouble(), 1.5).toDouble() * (maxLen - 2)).floor();
+            minLen +
+            (pow(rnd.nextDouble(), 1.5).toDouble() * (maxLen - minLen + 1))
+                .floor();
         final path = walk(x, y, target);
         if (path.length < 2) continue;
         for (final cand in [path, path.reversed.toList()]) {
@@ -1809,7 +1850,7 @@ class GameProvider extends ChangeNotifier {
       if (currentLevel > 500) _addEventProgress('tier5', 1);
     }
 
-    if (gridSize >= 10) _addEventProgress('big_grid', 1);
+    if (baseGridSize >= 10) _addEventProgress('big_grid', 1);
 
     final weekday = DateTime.now().weekday;
     if (weekday == DateTime.saturday || weekday == DateTime.sunday) {

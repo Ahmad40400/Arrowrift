@@ -18,6 +18,8 @@ Color get _bg => AppTheme.bg;
 Color get _pathColor => AppTheme.pathColor;
 Color get _card => AppTheme.card;
 Color get _ink => AppTheme.ink;
+const Color _bossRed = Color(0xFFD32F2F);
+const Color _bossGold = Color(0xFFFFB300);
 
 class LevelScreen extends StatefulWidget {
   final bool isProMode;
@@ -272,6 +274,7 @@ class _LevelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUnlocked = levelNum <= unlockedLevel;
     final isCurrent = levelNum == game.currentLevel && game.isProMode == isPro;
+    final bool isBoss = GameProvider.isBossLevel(levelNum);
     final cost = game.getLevelCost(levelNum, pro: isPro);
 
     final record = game.getRecordForLevel(levelNum, isPro: isPro);
@@ -286,12 +289,30 @@ class _LevelCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isUnlocked ? _card : _lockedBg,
+          color: isBoss
+              ? Color.alphaBlend(
+                  _bossRed.withOpacity(isUnlocked ? 0.12 : 0.08),
+                  isUnlocked ? _card : _lockedBg,
+                )
+              : (isUnlocked ? _card : _lockedBg),
           borderRadius: BorderRadius.circular(24),
-          border: isCurrent
-              ? Border.all(color: _brand, width: 2.5)
-              : Border.all(color: Colors.transparent, width: 0),
-          boxShadow: isUnlocked
+          border: isBoss
+              ? Border.all(
+                  color: isUnlocked ? _bossRed : _bossRed.withOpacity(0.45),
+                  width: isCurrent ? 3.5 : 2.5,
+                )
+              : (isCurrent
+                    ? Border.all(color: _brand, width: 2.5)
+                    : Border.all(color: Colors.transparent, width: 0)),
+          boxShadow: isBoss
+              ? [
+                  BoxShadow(
+                    color: _bossRed.withOpacity(isUnlocked ? 0.35 : 0.18),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : isUnlocked
               ? [
                   if (isCurrent)
                     BoxShadow(
@@ -310,12 +331,44 @@ class _LevelCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            if (isBoss) ...[
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: _bossRed,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.local_fire_department_rounded,
+                      color: _bossGold,
+                      size: 10,
+                    ),
+                    SizedBox(width: 2),
+                    Text(
+                      'BOSS',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 3),
+            ],
             Text(
               '$levelNum',
               style: TextStyle(
-                fontSize: 22,
+                fontSize: isBoss ? 24 : 22,
                 fontWeight: FontWeight.w900,
-                color: isUnlocked ? _brand : _lockedText,
+                color: isBoss
+                    ? (isUnlocked ? _bossRed : _bossRed.withOpacity(0.6))
+                    : (isUnlocked ? _brand : _lockedText),
                 height: 1.0,
               ),
             ),

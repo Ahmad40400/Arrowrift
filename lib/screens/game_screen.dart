@@ -17,6 +17,7 @@ Color get _brand => AppTheme.isClassic ? Color(0xFF2B2F77) : AppTheme.brand;
 Color get _accent => AppTheme.isClassic ? Color(0xFFE53935) : AppTheme.accent;
 Color get _bg => AppTheme.isClassic ? Color(0xFFF5F7FA) : AppTheme.bg;
 Color get _card => AppTheme.card;
+const Color _bossRed = Color(0xFFD32F2F);
 Color get _textBrand => AppTheme.isClassic ? Color(0xFF2B2F77) : AppTheme.ink;
 
 class GameScreen extends StatefulWidget {
@@ -191,11 +192,16 @@ class _GameScreenState extends State<GameScreen> {
                               ),
                             ),
                             Text(
-                              game.getDifficultyText(game.currentLevel),
+                              game.isBossNow
+                                  ? 'BOSS LEVEL'
+                                  : game.getDifficultyText(game.currentLevel),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.blueGrey(500),
+                                letterSpacing: game.isBossNow ? 1.5 : 0,
+                                color: game.isBossNow
+                                    ? _bossRed
+                                    : AppTheme.blueGrey(500),
                               ),
                             ),
                           ],
@@ -253,6 +259,47 @@ class _GameScreenState extends State<GameScreen> {
                       ],
                     ),
                   ),
+
+                  // ---------------- BOSS BANNER ----------------
+                  if (game.isBossNow)
+                    Container(
+                          margin: EdgeInsets.symmetric(horizontal: 16),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _bossRed.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _bossRed, width: 1.5),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.local_fire_department_rounded,
+                                color: _bossRed,
+                                size: 18,
+                              ),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'BOSS  •  No Freeze  •  Dense Board',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: _bossRed,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                        .animate()
+                        .fadeIn(duration: 400.ms)
+                        .shake(hz: 3, duration: 500.ms),
 
                   // ---------------- STATS ROW ----------------
                   Padding(
@@ -351,10 +398,22 @@ class _GameScreenState extends State<GameScreen> {
                             label: 'Freeze',
                             cost: Eco.freezeCoinPrice,
                             inventory: game.freezeInventory,
+                            disabled: game.isBossNow,
                             onTap: () {
                               if (game.isLevelFailed ||
                                   game.isGameOver ||
                                   game.isLevelComplete) {
+                                return;
+                              }
+                              if (game.isBossNow) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Boss level: Freeze is not allowed!',
+                                    ),
+                                    backgroundColor: _bossRed,
+                                  ),
+                                );
                                 return;
                               }
                               if (game.isTimeFrozen) {
@@ -947,6 +1006,7 @@ class _GameScreenState extends State<GameScreen> {
     int? cost,
     int inventory = 0,
     bool isDiamondCost = false,
+    bool disabled = false,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -970,7 +1030,11 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ],
                 ),
-                child: Icon(icon, color: color, size: 28),
+                child: Icon(
+                  disabled ? Icons.lock_rounded : icon,
+                  color: disabled ? Colors.grey : color,
+                  size: 28,
+                ),
               ),
             ),
             if (inventory > 0)
@@ -994,7 +1058,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ),
               ),
-            if (cost != null && inventory == 0)
+            if (cost != null && inventory == 0 && !disabled)
               Positioned(
                 top: 2,
                 right: -18,
