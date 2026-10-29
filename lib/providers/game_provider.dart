@@ -126,8 +126,7 @@ class GameProvider extends ChangeNotifier {
   // Global overlay key for showing achievement toasts anywhere in the app
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   Map<String, dynamic>? _activeGlobalPopup;
-  Timer?
-  _popupAutoDismissTimer; // NEW: Tracks auto-dismiss to prevent race conditions
+  Timer? _popupAutoDismissTimer;
 
   Set<String> _achievementPopupsShown = {};
 
@@ -140,7 +139,7 @@ class GameProvider extends ChangeNotifier {
   int _lastKnownDailyLevels = 0;
   int _lastKnownDailyArcade = 0;
 
-  // Throttling flag for performance (Fixes Issue #1)
+  // Throttling flag for performance
   bool _isCheckingAchievements = false;
   DateTime _lastAchievementCheck = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -341,8 +340,9 @@ class GameProvider extends ChangeNotifier {
   bool buyTheme(String id) {
     if (id == 'classic' || isThemeUnlocked(id)) return false;
     if (!AppTheme.all.any((t) => t.id == id)) return false;
-    if (totalPoints < Eco.themePrice) return false;
-    totalPoints -= Eco.themePrice;
+    final int themeCost = AppTheme.byId(id).price; // regular vs premium price
+    if (totalPoints < themeCost) return false;
+    totalPoints -= themeCost;
     unlockedThemes.add(id);
     activeThemeId = id;
     _previewTimer?.cancel();
@@ -352,7 +352,7 @@ class GameProvider extends ChangeNotifier {
     _applyThemeGlobally();
 
     _addEventProgress('buy_shop', 1);
-    _addEventProgress('spend', Eco.themePrice);
+    _addEventProgress('spend', themeCost);
     _addEventProgress('theme', 1);
 
     _saveData();
@@ -466,7 +466,6 @@ class GameProvider extends ChangeNotifier {
       _checkMinigameReset();
       _checkDailyTaskReset();
 
-      // Backfill leaderboard from old saved records
       if (leaderboardCoins.isEmpty && levelRecords.isNotEmpty) {
         _backfillLeaderboardFromHistory();
       }
@@ -1109,7 +1108,7 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     _timer?.cancel();
     _previewTimer?.cancel();
-    _popupAutoDismissTimer?.cancel(); // Clean up popup timer
+    _popupAutoDismissTimer?.cancel();
     previewSecondsLeft.dispose();
     super.dispose();
   }
@@ -1950,10 +1949,8 @@ class GameProvider extends ChangeNotifier {
   // ================================================================
 
   void checkAchievementPopups() {
-    // FIX Issue #1: Prevent duplicate runs if called multiple times rapidly
     if (_isCheckingAchievements) return;
 
-    // Throttling: Don't check more than once every 500ms
     final now = DateTime.now();
     if (now.difference(_lastAchievementCheck).inMilliseconds < 500) {
       return;
@@ -2060,7 +2057,6 @@ class GameProvider extends ChangeNotifier {
       final String id = a['id'] as String;
       if (_achievementPopupsShown.contains(id)) continue;
 
-      // Prevent adding to queue if it's already in queue (double safety)
       if (!_achievementPopupQueue.any((q) => q['id'] == id)) {
         _achievementPopupQueue.add(a);
       }
@@ -2087,17 +2083,16 @@ class GameProvider extends ChangeNotifier {
     }
     notifyListeners();
 
-    // Agar queue me aur bache hain, to agla popup dikhao
     Future.delayed(const Duration(milliseconds: 300), () {
       _triggerGlobalPopupIfReady();
     });
   }
 
   // ================================================================
-  // GLOBAL POPUP LOGIC (FIX Issue #2: No double pop)
+  // GLOBAL POPUP LOGIC (FIXED LAYOUT)
   // ================================================================
   void _triggerGlobalPopupIfReady() {
-    if (_activeGlobalPopup != null) return; // Ek waqt me ek hi popup
+    if (_activeGlobalPopup != null) return;
     if (_achievementPopupQueue.isEmpty) return;
     if (navigatorKey.currentContext == null) return;
 
@@ -2112,12 +2107,18 @@ class GameProvider extends ChangeNotifier {
       barrierColor: Colors.transparent,
       transitionDuration: const Duration(milliseconds: 400),
       pageBuilder: (ctx, anim1, anim2) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
-              child: _buildGlobalAchievementToast(ctx, _activeGlobalPopup!),
+        // FIX: The popup is now wrapped in a Material widget with transparent
+        // color and proper alignment. This prevents the pink background from
+        // stretching across the entire screen. It now hugs its content.
+        return Material(
+          color: Colors.transparent,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
+                child: _buildGlobalAchievementToast(ctx, _activeGlobalPopup!),
+              ),
             ),
           ),
         );
@@ -2132,17 +2133,15 @@ class GameProvider extends ChangeNotifier {
         );
       },
     ).then((_) {
-      // Route popped (either manually or automatically)
-      _popupAutoDismissTimer?.cancel(); // Cancel timer so it doesn't fire again
+      _popupAutoDismissTimer?.cancel();
       _popupAutoDismissTimer = null;
 
       if (_activeGlobalPopup != null) {
         _activeGlobalPopup = null;
-        popAchievementFromQueue(); // Queue se remove karo
+        popAchievementFromQueue();
       }
     });
 
-    // Auto dismiss in 4 seconds
     _popupAutoDismissTimer?.cancel();
     _popupAutoDismissTimer = Timer(const Duration(seconds: 4), () {
       if (_activeGlobalPopup != null && navigatorKey.currentContext != null) {
@@ -2180,99 +2179,98 @@ class GameProvider extends ChangeNotifier {
     final IconData icon = _achievementIconFor(
       achievement['icon'] as String? ?? 'trophy',
     );
-    return Material(
-      color: Colors.transparent,
-      child: GestureDetector(
-        onTap: () => Navigator.pop(context), // Tap to dismiss
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [color.withOpacity(0.95), color.withOpacity(0.75)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.45),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-            border: Border.all(
-              color: Colors.white.withOpacity(0.35),
-              width: 1.5,
-            ),
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        // No width: double.infinity here! It shrinks to fit the screen width minus padding
+        // and grows vertically as needed.
+        constraints: const BoxConstraints(maxWidth: 500),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color.withOpacity(0.95), color.withOpacity(0.75)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.22),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.5),
-                    width: 1.5,
-                  ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.45),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min, // Shrink-wrap horizontally
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.22),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.5),
+                  width: 1.5,
                 ),
-                child: Icon(icon, color: Colors.white, size: 24),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.emoji_events_rounded,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'ACHIEVEMENT UNLOCKED',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.0,
-                            color: Colors.white.withOpacity(0.95),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      achievement['title'] as String? ?? '',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min, // Shrink-wrap vertically
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.emoji_events_rounded,
                         color: Colors.white,
+                        size: 14,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      achievement['description'] as String? ?? '',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withOpacity(0.9),
+                      const SizedBox(width: 5),
+                      Text(
+                        'ACHIEVEMENT UNLOCKED',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                          color: Colors.white.withOpacity(0.95),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    achievement['title'] as String? ?? '',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    achievement['description'] as String? ?? '',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.close_rounded,
-                color: Colors.white.withOpacity(0.8),
-                size: 20,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.close_rounded,
+              color: Colors.white.withOpacity(0.8),
+              size: 20,
+            ),
+          ],
         ),
       ),
     );

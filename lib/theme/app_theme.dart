@@ -2,15 +2,40 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../economy/economy_config.dart';
+
 // ============================================================================
 // ARROWRIFT THEMES  —  single source of truth for every theme palette.
 //
 // 'classic' is the original look of the game (free, always owned).
-// The other 5 themes are premium: every new player gets ONE free trial per
-// theme, after that the theme must be bought (Eco.themePrice coins).
+//
+// Two shop categories:
+//   REGULAR  - Midnight, Sakura, Ocean, Forest, Sunset (Eco.themePrice coins).
+//   PREMIUM  - Royal Gold, Aurora, Cyber Grid, Lava Ember, Frozen Crystal,
+//              Rose Gold (richer backdrops, higher price).
+//
+// Every new player gets ONE free trial per theme (regular AND premium), after
+// that the theme must be bought with coins (ArrowTheme.price).
 // ============================================================================
 
-enum BackdropStyle { none, stars, petals, bubbles, leaves, sunrays }
+enum BackdropStyle {
+  none,
+  stars,
+  petals,
+  bubbles,
+  leaves,
+  sunrays,
+  // --- premium backdrops
+  goldDust,
+  aurora,
+  cyberGrid,
+  embers,
+  crystals,
+  roseShimmer,
+}
+
+/// Which shop category a theme belongs to.
+enum ThemeTier { regular, premium }
 
 class ArrowTheme {
   final String id;
@@ -48,6 +73,10 @@ class ArrowTheme {
   // Preview swatches (shown on the shop card)
   final List<Color> swatch;
 
+  // Shop category + optional own price (null = default price of the tier).
+  final ThemeTier tier;
+  final int? customPrice;
+
   const ArrowTheme({
     required this.id,
     required this.name,
@@ -74,9 +103,16 @@ class ArrowTheme {
     required this.backdrop,
     required this.backdropTint,
     required this.swatch,
+    this.tier = ThemeTier.regular,
+    this.customPrice,
   });
 
   bool get isClassic => id == 'classic';
+  bool get isPremium => tier == ThemeTier.premium;
+
+  /// Coins needed to own this theme forever.
+  int get price =>
+      customPrice ?? (isPremium ? Eco.premiumThemePrice : Eco.themePrice);
 }
 
 class AppTheme {
@@ -251,7 +287,188 @@ class AppTheme {
     swatch: [Color(0xFFFFD2B0), Color(0xFFC2410C), Color(0xFFE11D48)],
   );
 
-  /// Display order in the shop (classic first, then the 5 premium themes).
+  // ======================================================== PREMIUM THEMES
+  static const ArrowTheme royalGold = ArrowTheme(
+    id: 'royalgold',
+    name: 'Royal Gold',
+    tagline: 'Black velvet, pure gold and sparkling dust.',
+    icon: Icons.workspace_premium_rounded,
+    isDark: true,
+    bg: Color(0xFF0A0A0C),
+    bg2: Color(0xFF241A08),
+    brand: Color(0xFFB07D14),
+    ink: Color(0xFFF8EFD2),
+    accent: Color(0xFFFFD86B),
+    card: Color(0xFF17140E),
+    cardAlt: Color(0xFF241F13),
+    line: Color(0xFF4A3D1C),
+    muted: Color(0xFFB8A56A),
+    boardBg: Color(0xFF100E09),
+    boardBorder: Color(0xFFE2B93B),
+    boardDot: Color(0xFF4A3D1C),
+    arrowInk: Color(0xFFFFD86B),
+    danger: Color(0xFFFF5A4F),
+    lockedBg: Color(0xFF241F13),
+    lockedText: Color(0xFF8C7A45),
+    pathColor: Color(0xFF4A3D1C),
+    backdrop: BackdropStyle.goldDust,
+    backdropTint: Color(0xFFFFD86B),
+    swatch: [Color(0xFF0A0A0C), Color(0xFFE2B93B), Color(0xFFFFD86B)],
+    tier: ThemeTier.premium,
+    customPrice: 25000,
+  );
+
+  static const ArrowTheme aurora = ArrowTheme(
+    id: 'aurora',
+    name: 'Aurora Borealis',
+    tagline: 'Dancing northern lights over a polar night.',
+    icon: Icons.auto_awesome_rounded,
+    isDark: true,
+    bg: Color(0xFF03111A),
+    bg2: Color(0xFF0B2B3B),
+    brand: Color(0xFF0F8F82),
+    ink: Color(0xFFE6FFF9),
+    accent: Color(0xFFB388FF),
+    card: Color(0xFF0C2230),
+    cardAlt: Color(0xFF123246),
+    line: Color(0xFF1E4D63),
+    muted: Color(0xFF8FC7C4),
+    boardBg: Color(0xFF071B27),
+    boardBorder: Color(0xFF3DF5C0),
+    boardDot: Color(0xFF1E4D63),
+    arrowInk: Color(0xFF7CFFD8),
+    danger: Color(0xFFFF6B8A),
+    lockedBg: Color(0xFF123246),
+    lockedText: Color(0xFF5E9AA0),
+    pathColor: Color(0xFF1E4D63),
+    backdrop: BackdropStyle.aurora,
+    backdropTint: Color(0xFF3DF5C0),
+    swatch: [Color(0xFF03111A), Color(0xFF3DF5C0), Color(0xFFB388FF)],
+    tier: ThemeTier.premium,
+    customPrice: 18000,
+  );
+
+  static const ArrowTheme cyber = ArrowTheme(
+    id: 'cyber',
+    name: 'Cyber Grid',
+    tagline: 'Retro-future neon sun over a glowing grid.',
+    icon: Icons.electric_bolt_rounded,
+    isDark: true,
+    bg: Color(0xFF0D0221),
+    bg2: Color(0xFF2A0745),
+    brand: Color(0xFFD81B8C),
+    ink: Color(0xFFF5E9FF),
+    accent: Color(0xFF00F0FF),
+    card: Color(0xFF1A0B2E),
+    cardAlt: Color(0xFF271244),
+    line: Color(0xFF4B1F7A),
+    muted: Color(0xFFA98BD6),
+    boardBg: Color(0xFF120626),
+    boardBorder: Color(0xFFFF2BD6),
+    boardDot: Color(0xFF4B1F7A),
+    arrowInk: Color(0xFF00F0FF),
+    danger: Color(0xFFFFE600),
+    lockedBg: Color(0xFF271244),
+    lockedText: Color(0xFF7D5FB0),
+    pathColor: Color(0xFF4B1F7A),
+    backdrop: BackdropStyle.cyberGrid,
+    backdropTint: Color(0xFFFF2BD6),
+    swatch: [Color(0xFF0D0221), Color(0xFFD81B8C), Color(0xFF00F0FF)],
+    tier: ThemeTier.premium,
+    customPrice: 22000,
+  );
+
+  static const ArrowTheme lava = ArrowTheme(
+    id: 'lava',
+    name: 'Lava Ember',
+    tagline: 'Molten glow with rising fire sparks.',
+    icon: Icons.local_fire_department_rounded,
+    isDark: true,
+    bg: Color(0xFF140404),
+    bg2: Color(0xFF38100A),
+    brand: Color(0xFFD9480F),
+    ink: Color(0xFFFFEDE0),
+    accent: Color(0xFFFFB020),
+    card: Color(0xFF241008),
+    cardAlt: Color(0xFF341810),
+    line: Color(0xFF5C2A16),
+    muted: Color(0xFFD39A7C),
+    boardBg: Color(0xFF1A0A06),
+    boardBorder: Color(0xFFFF7A1A),
+    boardDot: Color(0xFF5C2A16),
+    arrowInk: Color(0xFFFFB347),
+    danger: Color(0xFFFF3B3B),
+    lockedBg: Color(0xFF341810),
+    lockedText: Color(0xFF9A6247),
+    pathColor: Color(0xFF5C2A16),
+    backdrop: BackdropStyle.embers,
+    backdropTint: Color(0xFFFF8A3D),
+    swatch: [Color(0xFF140404), Color(0xFFD9480F), Color(0xFFFFB020)],
+    tier: ThemeTier.premium,
+    customPrice: 20000,
+  );
+
+  static const ArrowTheme crystal = ArrowTheme(
+    id: 'crystal',
+    name: 'Frozen Crystal',
+    tagline: 'Icy facets, snowflakes and cool sapphire.',
+    icon: Icons.ac_unit_rounded,
+    isDark: false,
+    bg: Color(0xFFF4FBFF),
+    bg2: Color(0xFFD3E9F9),
+    brand: Color(0xFF2563EB),
+    ink: Color(0xFF0B2545),
+    accent: Color(0xFF8B5CF6),
+    card: Color(0xFFFFFFFF),
+    cardAlt: Color(0xFFE6F3FC),
+    line: Color(0xFFBBDDF2),
+    muted: Color(0xFF5F7F9E),
+    boardBg: Color(0xFFF8FDFF),
+    boardBorder: Color(0xFF7DB9F5),
+    boardDot: Color(0xFFC4E1F5),
+    arrowInk: Color(0xFF0B3A7A),
+    danger: Color(0xFFE5484D),
+    lockedBg: Color(0xFFD3E8F6),
+    lockedText: Color(0xFF7C9BB5),
+    pathColor: Color(0xFFBBDDF2),
+    backdrop: BackdropStyle.crystals,
+    backdropTint: Color(0xFF7DB9F5),
+    swatch: [Color(0xFFD3E9F9), Color(0xFF2563EB), Color(0xFF8B5CF6)],
+    tier: ThemeTier.premium,
+    customPrice: 15000,
+  );
+
+  static const ArrowTheme roseGold = ArrowTheme(
+    id: 'rosegold',
+    name: 'Rose Gold Luxe',
+    tagline: 'Blush shimmer with champagne sparkles.',
+    icon: Icons.diamond_rounded,
+    isDark: false,
+    bg: Color(0xFFFFF8F4),
+    bg2: Color(0xFFF5D6CB),
+    brand: Color(0xFFA85A66),
+    ink: Color(0xFF3B1F26),
+    accent: Color(0xFFD4A15A),
+    card: Color(0xFFFFFFFF),
+    cardAlt: Color(0xFFFBEAE4),
+    line: Color(0xFFEBC9BE),
+    muted: Color(0xFF9B7078),
+    boardBg: Color(0xFFFFFBF9),
+    boardBorder: Color(0xFFD9A08F),
+    boardDot: Color(0xFFF0D4CB),
+    arrowInk: Color(0xFF6B2F3B),
+    danger: Color(0xFFD6334F),
+    lockedBg: Color(0xFFF3D7CE),
+    lockedText: Color(0xFFB9928A),
+    pathColor: Color(0xFFEBC9BE),
+    backdrop: BackdropStyle.roseShimmer,
+    backdropTint: Color(0xFFE8B4A5),
+    swatch: [Color(0xFFF5D6CB), Color(0xFFA85A66), Color(0xFFD4A15A)],
+    tier: ThemeTier.premium,
+    customPrice: 15000,
+  );
+
+  /// Display order in the shop (classic first, then regular, then premium).
   static const List<ArrowTheme> all = [
     classic,
     midnight,
@@ -259,11 +476,21 @@ class AppTheme {
     ocean,
     forest,
     sunset,
+    // premium
+    crystal,
+    roseGold,
+    aurora,
+    lava,
+    cyber,
+    royalGold,
   ];
 
-  /// Only the 5 premium (buyable) themes.
-  static List<ArrowTheme> get premium =>
-      all.where((t) => !t.isClassic).toList();
+  /// REGULAR category = classic (free) + the 5 original buyable themes.
+  static List<ArrowTheme> get regular =>
+      all.where((t) => !t.isPremium).toList();
+
+  /// PREMIUM category = the new high-end themes (higher price).
+  static List<ArrowTheme> get premium => all.where((t) => t.isPremium).toList();
 
   static ArrowTheme byId(String? id) {
     for (final t in all) {
@@ -400,7 +627,7 @@ class ThemeBackdrop extends StatelessWidget {
         Positioned.fill(
           child: IgnorePointer(
             child: RepaintBoundary(
-              child: CustomPaint(painter: _BackdropPainter(theme)),
+              child: CustomPaint(painter: ThemeBackdropPainter(theme)),
             ),
           ),
         ),
@@ -410,9 +637,10 @@ class ThemeBackdrop extends StatelessWidget {
   }
 }
 
-class _BackdropPainter extends CustomPainter {
+/// Public so the shop can draw a mini preview of a premium backdrop.
+class ThemeBackdropPainter extends CustomPainter {
   final ArrowTheme t;
-  _BackdropPainter(this.t);
+  ThemeBackdropPainter(this.t);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -436,7 +664,397 @@ class _BackdropPainter extends CustomPainter {
       case BackdropStyle.sunrays:
         _sunrays(canvas, size, rnd);
         break;
+      case BackdropStyle.goldDust:
+        _goldDust(canvas, size, rnd);
+        break;
+      case BackdropStyle.aurora:
+        _aurora(canvas, size, rnd);
+        break;
+      case BackdropStyle.cyberGrid:
+        _cyberGrid(canvas, size, rnd);
+        break;
+      case BackdropStyle.embers:
+        _embers(canvas, size, rnd);
+        break;
+      case BackdropStyle.crystals:
+        _crystals(canvas, size, rnd);
+        break;
+      case BackdropStyle.roseShimmer:
+        _roseShimmer(canvas, size, rnd);
+        break;
     }
+  }
+
+  // ------------------------------------------------ premium backdrop helpers
+  // withAlpha-based so it works on every Flutter version (no deprecated calls).
+  Color _al(Color c, double o) =>
+      c.withAlpha((o.clamp(0.0, 1.0) * 255).round());
+
+  void _glow(Canvas canvas, Offset c, double r, Color color, double o) {
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..shader = RadialGradient(colors: [_al(color, o), _al(color, 0)])
+            .createShader(Rect.fromCircle(center: c, radius: r)),
+    );
+  }
+
+  void _sparkle(Canvas canvas, Offset c, double r, Paint p) {
+    final path = Path()
+      ..moveTo(c.dx, c.dy - r)
+      ..quadraticBezierTo(c.dx + r * 0.12, c.dy - r * 0.12, c.dx + r, c.dy)
+      ..quadraticBezierTo(c.dx + r * 0.12, c.dy + r * 0.12, c.dx, c.dy + r)
+      ..quadraticBezierTo(c.dx - r * 0.12, c.dy + r * 0.12, c.dx - r, c.dy)
+      ..quadraticBezierTo(c.dx - r * 0.12, c.dy - r * 0.12, c.dx, c.dy - r)
+      ..close();
+    canvas.drawPath(path, p);
+  }
+
+  Path _polygon(Offset c, double r, int sides, double rot) {
+    final path = Path();
+    for (int i = 0; i < sides; i++) {
+      final double a = rot + (2 * pi / sides) * i;
+      final Offset pt = Offset(c.dx + cos(a) * r, c.dy + sin(a) * r);
+      if (i == 0) {
+        path.moveTo(pt.dx, pt.dy);
+      } else {
+        path.lineTo(pt.dx, pt.dy);
+      }
+    }
+    return path..close();
+  }
+
+  // ROYAL GOLD: warm gold glows, fine dust and four-point sparkles.
+  void _goldDust(Canvas canvas, Size size, Random rnd) {
+    _glow(
+      canvas,
+      Offset(size.width * 0.9, size.height * 0.08),
+      size.width * 0.75,
+      const Color(0xFFFFC94A),
+      0.30,
+    );
+    _glow(
+      canvas,
+      Offset(size.width * 0.05, size.height * 0.95),
+      size.width * 0.85,
+      const Color(0xFFB07D14),
+      0.28,
+    );
+    // soft diagonal light beams
+    final beam = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 3; i++) {
+      beam.color = _al(t.backdropTint, 0.05 - i * 0.012);
+      final double x = size.width * (0.15 + i * 0.3);
+      canvas.drawPath(
+        Path()
+          ..moveTo(x, 0)
+          ..lineTo(x + size.width * 0.16, 0)
+          ..lineTo(x - size.width * 0.35, size.height)
+          ..lineTo(x - size.width * 0.51, size.height)
+          ..close(),
+        beam,
+      );
+    }
+    final dust = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 80; i++) {
+      final double x = rnd.nextDouble() * size.width;
+      final double y = rnd.nextDouble() * size.height;
+      final double r = 0.4 + rnd.nextDouble() * 1.5;
+      dust.color = _al(t.backdropTint, 0.15 + rnd.nextDouble() * 0.5);
+      canvas.drawCircle(Offset(x, y), r, dust);
+    }
+    final spark = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 9; i++) {
+      final double x = rnd.nextDouble() * size.width;
+      final double y = rnd.nextDouble() * size.height;
+      final double r = 4 + rnd.nextDouble() * 8;
+      spark.color = _al(const Color(0xFFFFE9A8), 0.35 + rnd.nextDouble() * 0.4);
+      _sparkle(canvas, Offset(x, y), r, spark);
+    }
+  }
+
+  // AURORA: three flowing northern-light ribbons over faint stars.
+  void _aurora(Canvas canvas, Size size, Random rnd) {
+    final star = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 55; i++) {
+      final double x = rnd.nextDouble() * size.width;
+      final double y = rnd.nextDouble() * size.height * 0.7;
+      star.color = _al(Colors.white, 0.15 + rnd.nextDouble() * 0.5);
+      canvas.drawCircle(Offset(x, y), 0.4 + rnd.nextDouble() * 1.1, star);
+    }
+    final List<Color> ribbons = [
+      const Color(0xFF3DF5C0),
+      const Color(0xFF4F8BFF),
+      const Color(0xFFB388FF),
+    ];
+    for (int b = 0; b < ribbons.length; b++) {
+      final double top = size.height * (0.06 + b * 0.11);
+      final double thick = size.height * (0.20 - b * 0.02);
+      final double amp = size.height * (0.035 + b * 0.01);
+      final double freq = 1.2 + b * 0.55;
+      final double phase = b * 1.7;
+      final path = Path()..moveTo(0, top);
+      for (double x = 0; x <= size.width; x += 4) {
+        path.lineTo(
+          x,
+          top + sin((x / size.width) * 2 * pi * freq + phase) * amp,
+        );
+      }
+      for (double x = size.width; x >= 0; x -= 4) {
+        path.lineTo(
+          x,
+          top +
+              thick +
+              sin((x / size.width) * 2 * pi * (freq * 0.8) + phase + 1.0) *
+                  amp *
+                  1.4,
+        );
+      }
+      path.close();
+      canvas.drawPath(
+        path,
+        Paint()
+          ..shader =
+              LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _al(ribbons[b], 0.0),
+                  _al(ribbons[b], 0.34),
+                  _al(ribbons[b], 0.0),
+                ],
+              ).createShader(
+                Rect.fromLTWH(0, top - amp, size.width, thick + amp * 3),
+              ),
+      );
+    }
+    _glow(
+      canvas,
+      Offset(size.width * 0.5, size.height * 1.0),
+      size.width * 0.9,
+      const Color(0xFF14B8A6),
+      0.16,
+    );
+  }
+
+  // CYBER GRID: neon sun on the horizon + perspective floor grid.
+  void _cyberGrid(Canvas canvas, Size size, Random rnd) {
+    final double horizon = size.height * 0.64;
+    final star = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 40; i++) {
+      final double x = rnd.nextDouble() * size.width;
+      final double y = rnd.nextDouble() * horizon * 0.9;
+      star.color = _al(Colors.white, 0.12 + rnd.nextDouble() * 0.4);
+      canvas.drawCircle(Offset(x, y), 0.4 + rnd.nextDouble() * 1.0, star);
+    }
+    // sun
+    final Offset sunC = Offset(size.width * 0.5, horizon - size.width * 0.05);
+    final double sunR = size.width * 0.27;
+    _glow(canvas, sunC, sunR * 2.0, const Color(0xFFFF2BD6), 0.22);
+    canvas.drawCircle(
+      sunC,
+      sunR,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            _al(const Color(0xFFFFE600), 0.42),
+            _al(const Color(0xFFFF2BD6), 0.42),
+          ],
+        ).createShader(Rect.fromCircle(center: sunC, radius: sunR)),
+    );
+    // floor
+    canvas.drawRect(
+      Rect.fromLTWH(0, horizon, size.width, size.height - horizon),
+      Paint()..color = _al(const Color(0xFF0D0221), 0.55),
+    );
+    final lineP = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..color = _al(t.backdropTint, 0.42);
+    canvas.drawLine(
+      Offset(0, horizon),
+      Offset(size.width, horizon),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..color = _al(const Color(0xFF00F0FF), 0.7),
+    );
+    // horizontal lines (perspective spacing)
+    final double floorH = size.height - horizon;
+    for (int i = 1; i <= 9; i++) {
+      final double k = (i / 9.0);
+      final double y = horizon + floorH * k * k;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), lineP);
+    }
+    // vertical lines converge to the vanishing point
+    final Offset vp = Offset(size.width * 0.5, horizon);
+    for (int i = -10; i <= 10; i++) {
+      final double bx = size.width * 0.5 + i * size.width * 0.16;
+      canvas.drawLine(vp, Offset(bx, size.height), lineP);
+    }
+  }
+
+  // LAVA EMBER: hot glow from below and rising sparks.
+  void _embers(Canvas canvas, Size size, Random rnd) {
+    _glow(
+      canvas,
+      Offset(size.width * 0.5, size.height * 1.05),
+      size.width * 1.1,
+      const Color(0xFFFF5A1A),
+      0.42,
+    );
+    _glow(
+      canvas,
+      Offset(size.width * 0.12, size.height * 0.98),
+      size.width * 0.6,
+      const Color(0xFFFFB020),
+      0.25,
+    );
+    _glow(
+      canvas,
+      Offset(size.width * 0.92, size.height * 0.05),
+      size.width * 0.6,
+      const Color(0xFFB71C1C),
+      0.25,
+    );
+    final glowP = Paint()..style = PaintingStyle.fill;
+    final coreP = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 55; i++) {
+      final double x = rnd.nextDouble() * size.width;
+      // more sparks near the bottom
+      final double y = size.height * (1 - pow(rnd.nextDouble(), 1.8));
+      final double r = 0.8 + rnd.nextDouble() * 2.6;
+      glowP.color = _al(t.backdropTint, 0.10 + rnd.nextDouble() * 0.12);
+      coreP.color = _al(const Color(0xFFFFD27A), 0.45 + rnd.nextDouble() * 0.5);
+      canvas.drawCircle(Offset(x, y), r * 3.2, glowP);
+      canvas.drawCircle(Offset(x, y), r, coreP);
+    }
+  }
+
+  // FROZEN CRYSTAL: faceted ice shards, snowflakes and a cold sheen.
+  void _crystals(Canvas canvas, Size size, Random rnd) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.center,
+          colors: [_al(Colors.white, 0.65), _al(Colors.white, 0.0)],
+        ).createShader(Offset.zero & size),
+    );
+    final fill = Paint()..style = PaintingStyle.fill;
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    for (int i = 0; i < 16; i++) {
+      final Offset c = Offset(
+        rnd.nextDouble() * size.width,
+        rnd.nextDouble() * size.height,
+      );
+      final double r = 14 + rnd.nextDouble() * 30;
+      final double rot = rnd.nextDouble() * pi;
+      final int sides = i.isEven ? 6 : 4;
+      fill.color = _al(t.backdropTint, 0.07 + rnd.nextDouble() * 0.07);
+      edge.color = _al(t.backdropTint, 0.28 + rnd.nextDouble() * 0.2);
+      final Path poly = _polygon(c, r, sides, rot);
+      canvas.drawPath(poly, fill);
+      canvas.drawPath(poly, edge);
+      // facet lines from the centre
+      for (int k = 0; k < sides; k += 2) {
+        final double a = rot + (2 * pi / sides) * k;
+        canvas.drawLine(
+          c,
+          Offset(c.dx + cos(a) * r, c.dy + sin(a) * r),
+          edge..color = _al(t.backdropTint, 0.16),
+        );
+      }
+    }
+    final flake = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 20; i++) {
+      final Offset c = Offset(
+        rnd.nextDouble() * size.width,
+        rnd.nextDouble() * size.height,
+      );
+      final double r = 4 + rnd.nextDouble() * 7;
+      flake.color = _al(Colors.white, 0.55 + rnd.nextDouble() * 0.35);
+      for (int k = 0; k < 3; k++) {
+        final double a = (pi / 3) * k;
+        canvas.drawLine(
+          Offset(c.dx - cos(a) * r, c.dy - sin(a) * r),
+          Offset(c.dx + cos(a) * r, c.dy + sin(a) * r),
+          flake,
+        );
+      }
+    }
+  }
+
+  // ROSE GOLD: blush bokeh, a glossy ribbon and champagne sparkles.
+  void _roseShimmer(Canvas canvas, Size size, Random rnd) {
+    final Path ribbon = Path()
+      ..moveTo(0, size.height * 0.18)
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.02,
+        size.width,
+        size.height * 0.20,
+      )
+      ..lineTo(size.width, size.height * 0.30)
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.12,
+        0,
+        size.height * 0.28,
+      )
+      ..close();
+    canvas.drawPath(
+      ribbon,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [
+            _al(const Color(0xFFFFFFFF), 0.0),
+            _al(const Color(0xFFFFFFFF), 0.55),
+            _al(const Color(0xFFD4A15A), 0.0),
+          ],
+        ).createShader(Offset.zero & size),
+    );
+    final fill = Paint()..style = PaintingStyle.fill;
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    for (int i = 0; i < 18; i++) {
+      final Offset c = Offset(
+        rnd.nextDouble() * size.width,
+        rnd.nextDouble() * size.height,
+      );
+      final double r = 10 + rnd.nextDouble() * 34;
+      fill.color = _al(t.backdropTint, 0.10 + rnd.nextDouble() * 0.12);
+      ring.color = _al(Colors.white, 0.30 + rnd.nextDouble() * 0.25);
+      canvas.drawCircle(c, r, fill);
+      canvas.drawCircle(c, r, ring);
+    }
+    final spark = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < 11; i++) {
+      final Offset c = Offset(
+        rnd.nextDouble() * size.width,
+        rnd.nextDouble() * size.height,
+      );
+      final double r = 4 + rnd.nextDouble() * 8;
+      spark.color = _al(t.accent, 0.40 + rnd.nextDouble() * 0.40);
+      _sparkle(canvas, c, r, spark);
+    }
+    _glow(
+      canvas,
+      Offset(size.width * 0.15, size.height * 0.95),
+      size.width * 0.8,
+      const Color(0xFFE8B4A5),
+      0.30,
+    );
   }
 
   void _stars(Canvas canvas, Size size, Random rnd) {
@@ -614,5 +1232,5 @@ class _BackdropPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BackdropPainter old) => old.t.id != t.id;
+  bool shouldRepaint(covariant ThemeBackdropPainter old) => old.t.id != t.id;
 }

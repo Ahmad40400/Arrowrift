@@ -452,15 +452,18 @@ class BuyScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Try every theme for FREE once '
-                      '(${Eco.themePreviewSeconds ~/ 60} min). '
-                      'Love it? Own it forever for '
-                      '${_fmtCoins(Eco.themePrice)} coins.',
-                      style: TextStyle(color: AppTheme.dim(54), fontSize: 12),
-                    ),
+                    // ---------------- REGULAR category ----------------
+                    _buildThemeCategoryHeader(game, premium: false),
                     const SizedBox(height: 12),
-                    for (final t in AppTheme.all) ...[
+                    for (final t in AppTheme.regular) ...[
+                      _buildThemeCard(context, game, t),
+                      const SizedBox(height: 12),
+                    ],
+                    const SizedBox(height: 8),
+                    // ---------------- PREMIUM category ----------------
+                    _buildThemeCategoryHeader(game, premium: true),
+                    const SizedBox(height: 12),
+                    for (final t in AppTheme.premium) ...[
                       _buildThemeCard(context, game, t),
                       const SizedBox(height: 12),
                     ],
@@ -476,6 +479,123 @@ class BuyScreen extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  // Gold used for everything "premium" in the shop.
+  static const Color _premiumGold = Color(0xFFE0A100);
+  static const Color _premiumGoldDeep = Color(0xFFB8860B);
+
+  Widget _buildThemeCategoryHeader(GameProvider game, {required bool premium}) {
+    final List<ArrowTheme> list = premium ? AppTheme.premium : AppTheme.regular;
+    final int owned = list.where((t) => game.isThemeUnlocked(t.id)).length;
+    final int minPrice = list
+        .where((t) => !t.isClassic)
+        .map((t) => t.price)
+        .reduce((a, b) => a < b ? a : b);
+    final String trial =
+        'Try every theme for FREE once (${Eco.themePreviewSeconds ~/ 60} min). ';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: premium
+            ? _premiumGold.withOpacity(0.10)
+            : _brand.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: premium
+              ? _premiumGold.withOpacity(0.55)
+              : _brand.withOpacity(0.18),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (premium)
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFFFD54F), _premiumGoldDeep],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                )
+              else
+                Icon(Icons.palette_outlined, color: _brand, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  premium ? 'PREMIUM THEMES' : 'REGULAR THEMES',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.3,
+                    color: premium ? _premiumGold : _ink,
+                  ),
+                ),
+              ),
+              Text(
+                '$owned / ${list.length} owned',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.dim(54),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            premium
+                ? 'Exclusive high-end looks with rich animated-style '
+                      'backgrounds. $trial'
+                      'Own forever from ${_fmtCoins(minPrice)} coins.'
+                : '$trial'
+                      'Love it? Own it forever for '
+                      '${_fmtCoins(Eco.themePrice)} coins.',
+            style: TextStyle(color: AppTheme.dim(54), fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPremiumCrownBadge() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFD54F), _premiumGoldDeep],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.workspace_premium_rounded,
+        color: Colors.white,
+        size: 12,
+      ),
     );
   }
 
@@ -527,13 +647,19 @@ class BuyScreen extends StatelessWidget {
         color: _card,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isOnScreen ? t.brand : Colors.transparent,
+          color: isOnScreen
+              ? t.brand
+              : (t.isPremium
+                    ? _premiumGold.withOpacity(0.55)
+                    : Colors.transparent),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
+            color: t.isPremium
+                ? _premiumGold.withOpacity(0.16)
+                : Colors.black.withOpacity(0.04),
+            blurRadius: t.isPremium ? 18 : 15,
             offset: Offset(0, 5),
           ),
         ],
@@ -542,13 +668,24 @@ class BuyScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: SizedBox(
-                  width: 84,
-                  height: 84,
-                  child: CustomPaint(painter: _ThemeThumbPainter(t)),
-                ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: SizedBox(
+                      width: 84,
+                      height: 84,
+                      child: CustomPaint(painter: _ThemeThumbPainter(t)),
+                    ),
+                  ),
+                  if (t.isPremium)
+                    Positioned(
+                      top: -6,
+                      left: -6,
+                      child: _buildPremiumCrownBadge(),
+                    ),
+                ],
               ),
               SizedBox(width: 14),
               Expanded(
@@ -724,7 +861,7 @@ class BuyScreen extends StatelessWidget {
                         ),
                         SizedBox(width: 5),
                         Text(
-                          _fmtCoins(Eco.themePrice),
+                          _fmtCoins(t.price),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -742,10 +879,10 @@ class BuyScreen extends StatelessWidget {
   }
 
   void _confirmBuyTheme(BuildContext context, GameProvider game, ArrowTheme t) {
-    if (game.totalPoints < Eco.themePrice) {
+    if (game.totalPoints < t.price) {
       _showErrorPopup(
         context,
-        'Not enough coins! ${t.name} costs ${_fmtCoins(Eco.themePrice)} coins.',
+        'Not enough coins! ${t.name} costs ${_fmtCoins(t.price)} coins.',
       );
       return;
     }
@@ -791,7 +928,7 @@ class BuyScreen extends StatelessWidget {
                     ),
                     SizedBox(width: 6),
                     Text(
-                      _fmtCoins(Eco.themePrice),
+                      _fmtCoins(t.price),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -2051,6 +2188,8 @@ class _ThemeThumbPainter extends CustomPainter {
           colors: [t.bg, t.bg2],
         ).createShader(rect),
     );
+    // premium themes show a mini version of their real backdrop
+    if (t.isPremium) ThemeBackdropPainter(t).paint(canvas, size);
 
     final double m = size.width * 0.12;
     final board = RRect.fromRectAndRadius(

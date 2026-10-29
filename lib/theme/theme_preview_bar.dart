@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../economy/economy_config.dart';
 import '../providers/game_provider.dart';
 import 'app_theme.dart';
 
@@ -70,13 +69,13 @@ class ThemePreviewShell extends StatelessWidget {
                     const SizedBox(width: 6),
                     GestureDetector(
                       onTap: () {
-                        if (game.totalPoints >= Eco.themePrice) {
+                        if (game.totalPoints >= t.price) {
                           game.buyTheme(t.id);
                         } else {
                           ScaffoldMessenger.maybeOf(context)?.showSnackBar(
                             SnackBar(
                               content: Text(
-                                'Not enough coins! You need ${Eco.themePrice} coins.',
+                                'Not enough coins! You need ${t.price} coins.',
                               ),
                               duration: const Duration(seconds: 2),
                             ),
@@ -102,7 +101,7 @@ class ThemePreviewShell extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${Eco.themePrice}',
+                              '${t.price}',
                               style: TextStyle(
                                 color: t.brand,
                                 fontSize: 12,

@@ -58,7 +58,11 @@ class Eco {
   static const int luckyAutoSolveKeepOutOf10 = 1;
 
   // ---------------------------------------------------------------- THEMES
+  // Regular themes (classic look-alikes: Midnight, Sakura, Ocean, Forest, Sunset).
   static const int themePrice = 10000;
+  // Default price for PREMIUM themes. Each premium theme can override it with
+  // its own `customPrice` inside app_theme.dart (all premium prices >= this).
+  static const int premiumThemePrice = 15000;
   static const int themePreviewSeconds = 180;
 
   // --------------------------------------------------------- STARTER KIT
