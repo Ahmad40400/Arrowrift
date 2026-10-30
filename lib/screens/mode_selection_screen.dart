@@ -13,7 +13,7 @@ import 'settings_screen.dart';
 import 'buy_screen.dart';
 import 'arcade_screen.dart';
 import 'daily_streak_screen.dart';
-import 'events_screen.dart'; // <--- NAYA IMPORT (Events Screen)
+import 'events_screen.dart';
 import '../theme/app_theme.dart';
 
 Color get _brand => AppTheme.brand;
@@ -515,6 +515,14 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
   }
 
   // ===================== HOME TAB =====================
+  //
+  // 🔧 BULLETPROOF LAYOUT (logic unchanged):
+  //   - SingleChildScrollView lagaya hai: chhoti screens pe content scroll hoga,
+  //     kabhi overflow nahi hoga.
+  //   - ConstrainedBox(minHeight: available height) lagaya hai taake badi
+  //     screens pe content vertically fill ho aur scroll na dikhe.
+  //   - Mode cards ab Expanded ke bajaye fixed-height SizedBox ke andar hain.
+  //     Agar zyada jagah bachi ho toh Centre align honge, kam ho toh scroll.
   Widget _buildHomeTab(BuildContext context, GameProvider game) {
     final int todaySeed = game.todayStamp;
     final bool isCompleted = game.lastDailyCompletedDate == todaySeed;
@@ -533,102 +541,143 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     final bool showComingSoon =
         game.classicUnlockedLevel <= 10 && game.proUnlockedLevel <= 10;
 
-    // NO SCROLL: LayoutBuilder use kiya hai taake height screen ke hisaab se adjust ho
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTitleBlock(game),
-              const SizedBox(height: 16),
+        // Chhoti screens pe mode cards ki minimum height 260dp hai.
+        // Agar available height kaafi hai, cards minimum ke saath expand
+        // honge; agar kam hai, scroll ho jayega.
+        const double _minModeCardHeight = 260;
 
-              // Daily Card (Fixed Height)
-              _buildDailyCard(
-                context,
-                game,
-                isCompleted: isCompleted,
-                isDailyPro: isDailyPro,
-                dailyLevelNum: dailyLevelNum,
-              ).animate().slideY(
-                begin: 0.2,
-                duration: 400.ms,
-                curve: Curves.easeOutBack,
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: math.max(0, constraints.maxHeight),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTitleBlock(game),
+                  const SizedBox(height: 16),
+
+                  // Daily Card (intrinsic height, safe)
+                  _buildDailyCard(
+                    context,
+                    game,
+                    isCompleted: isCompleted,
+                    isDailyPro: isDailyPro,
+                    dailyLevelNum: dailyLevelNum,
+                  ).animate().slideY(
+                    begin: 0.2,
+                    duration: 400.ms,
+                    curve: Curves.easeOutBack,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Mode Cards — fixed minimum height so they never squash,
+                  // and if space allows they grow to fill available room.
+                  _buildModeCardsRow(
+                    context: context,
+                    game: game,
+                    minHeight: _minModeCardHeight,
+                    availableHeight: constraints.maxHeight,
+                    classicProgress: classicProgress,
+                    proProgress: proProgress,
+                  ),
+
+                  // Tips / Banner Section
+                  const SizedBox(height: 16),
+                  if (showComingSoon)
+                    _buildComingSoonBanner()
+                  else
+                    _buildProTipsBanner(game),
+                ],
               ),
-              const SizedBox(height: 16),
-
-              // Mode Cards (Expanded: bachi hui jagah mein perfectly fit honge)
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _buildModeCard(
-                        title: 'Classic Mode',
-                        subtitle: '2000 Levels\nEasy to Legendary',
-                        art: _buildCubeArt(),
-                        gradient: const [Color(0xFF5B7CFA), Color(0xFF3A56D4)],
-                        buttonColor: const Color(0xFF29B6F6),
-                        progress: classicProgress,
-                        progressLabel: 'Lv ${game.classicUnlockedLevel}',
-                        tutorialKey: TutorialManager.classicCardKey,
-                        onTap: () {
-                          // TUTORIAL: Classic card tapped -> Level 1 step.
-                          if (game.tutorialStep ==
-                              TutorialManager.stepClassicMode) {
-                            game.setTutorialStep(TutorialManager.stepLevel1);
-                          }
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              settings: const RouteSettings(
-                                name: TutorialManager.levelRouteName,
-                              ),
-                              builder: (_) => LevelScreen(isProMode: false),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: _buildModeCard(
-                        title: 'Pro Mode',
-                        subtitle: '500 Levels\nExtreme Challenge',
-                        art: _buildFlameArt(),
-                        gradient: [
-                          _rich(_accent, 0.56, 0.80),
-                          _rich(_accent, 0.38, 0.78),
-                        ],
-                        buttonColor: _accent,
-                        progress: proProgress,
-                        progressLabel: 'Lv ${game.proUnlockedLevel}',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            settings: const RouteSettings(
-                              name: TutorialManager.levelRouteName,
-                            ),
-                            builder: (_) => LevelScreen(isProMode: true),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Tips / Banner Section
-              const SizedBox(height: 16),
-              if (showComingSoon)
-                _buildComingSoonBanner()
-              else
-                _buildProTipsBanner(game),
-            ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  // Mode cards row — apna height khud decide karta hai (bina overflow).
+  Widget _buildModeCardsRow({
+    required BuildContext context,
+    required GameProvider game,
+    required double minHeight,
+    required double availableHeight,
+    required double classicProgress,
+    required double proProgress,
+  }) {
+    // Agar screen bahut lambi hai (tablet / big phone), cards thodi si badi
+    // dikhein — lekin 360 se zyada nahi, warna art stretched lagega.
+    final double rowHeight = minHeight.clamp(minHeight, 360.0).toDouble();
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620),
+        child: SizedBox(
+          height: rowHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildModeCard(
+                  title: 'Classic Mode',
+                  subtitle: '2000 Levels\nEasy to Legendary',
+                  art: _buildCubeArt(),
+                  gradient: const [Color(0xFF5B7CFA), Color(0xFF3A56D4)],
+                  buttonColor: const Color(0xFF29B6F6),
+                  progress: classicProgress,
+                  progressLabel: 'Lv ${game.classicUnlockedLevel}',
+                  tutorialKey: TutorialManager.classicCardKey,
+                  onTap: () {
+                    // TUTORIAL: Classic card tapped -> Level 1 step.
+                    if (game.tutorialStep == TutorialManager.stepClassicMode) {
+                      game.setTutorialStep(TutorialManager.stepLevel1);
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        settings: const RouteSettings(
+                          name: TutorialManager.levelRouteName,
+                        ),
+                        builder: (_) => LevelScreen(isProMode: false),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _buildModeCard(
+                  title: 'Pro Mode',
+                  subtitle: '500 Levels\nExtreme Challenge',
+                  art: _buildFlameArt(),
+                  gradient: [
+                    _rich(_accent, 0.56, 0.80),
+                    _rich(_accent, 0.38, 0.78),
+                  ],
+                  buttonColor: _accent,
+                  progress: proProgress,
+                  progressLabel: 'Lv ${game.proUnlockedLevel}',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      settings: const RouteSettings(
+                        name: TutorialManager.levelRouteName,
+                      ),
+                      builder: (_) => LevelScreen(isProMode: true),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -789,14 +838,18 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                         size: 14,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        isDailyPro
-                            ? 'Pro Level $dailyLevelNum'
-                            : 'Classic Level $dailyLevelNum',
-                        style: TextStyle(
-                          color: _ink,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                      Flexible(
+                        child: Text(
+                          isDailyPro
+                              ? 'Pro Level $dailyLevelNum'
+                              : 'Classic Level $dailyLevelNum',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _ink,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
@@ -1113,6 +1166,10 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
   }
 
   // FEATURE #2: Ek hi affordance — poora card tappable.
+  //
+  // 🔧 Layout fix: card ke andar ab FittedBox(scaleDown) wrap hai taake agar
+  // height kam ho toh saara content proportionally shrink ho jaye — kuch
+  // cut/overflow na ho.
   Widget _buildModeCard({
     required String title,
     required String subtitle,
@@ -1172,150 +1229,167 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Center(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: SizedBox(
-                            width: 112,
+              // 🔧 FittedBox ke saath content ko wrap kiya taake chhoti
+              // heights pe bhi poora content scale ho jaye (never cut).
+              Positioned.fill(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.center,
+                  child: SizedBox(
+                    width: 180,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
                             height: 102,
-                            child: FittedBox(fit: BoxFit.contain, child: art),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: Colors.white70,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.14),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.bar_chart_rounded,
-                            color: Colors.white,
-                            size: 13,
-                          ),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              subtitle,
-                              maxLines: 2,
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (progressLabel.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 6,
-                                backgroundColor: Colors.white.withOpacity(0.22),
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: SizedBox(
+                                  width: 112,
+                                  height: 102,
+                                  child: art,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            progressLabel,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    title,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Colors.white70,
+                                size: 22,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.bar_chart_rounded,
+                                  color: Colors.white,
+                                  size: 13,
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    subtitle,
+                                    maxLines: 2,
+                                    style: const TextStyle(
+                                      fontSize: 10.5,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    // Single affordance: poora card tappable, ye strip sirf visual
-                    // cue hai (button jaisa behavior nahi — koi separate onTap nahi).
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.95),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.12),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Continue',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              color: _deep(buttonColor, 0.1),
+                          if (progressLabel.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      minHeight: 6,
+                                      backgroundColor: Colors.white.withOpacity(
+                                        0.22,
+                                      ),
+                                      valueColor:
+                                          const AlwaysStoppedAnimation<Color>(
+                                            Colors.white,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  progressLabel,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            color: _deep(buttonColor, 0.1),
-                            size: 20,
+                          ],
+                          const SizedBox(height: 12),
+                          // Single affordance: poora card tappable, ye strip
+                          // sirf visual cue hai (button jaisa behavior nahi —
+                          // koi separate onTap nahi).
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.95),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.12),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Continue',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    color: _deep(buttonColor, 0.1),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: _deep(buttonColor, 0.1),
+                                  size: 20,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
