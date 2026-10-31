@@ -75,6 +75,11 @@ class SaveData {
   final String activeTheme;
   final List<String> triedThemes;
 
+  // CUSTOM GRIDS
+  final List<String> unlockedGrids;
+  final String activeGrid;
+  final List<String> triedGrids;
+
   // LOGIN STREAK
   final int streakCount;
   final int lastStreakDay;
@@ -132,6 +137,9 @@ class SaveData {
     this.unlockedThemes = const ['classic'],
     this.activeTheme = 'classic',
     this.triedThemes = const [],
+    this.unlockedGrids = const ['default'],
+    this.activeGrid = 'default',
+    this.triedGrids = const [],
     this.streakCount = 0,
     this.lastStreakDay = 0,
     this.streakFreezeHeld = 0,
@@ -183,6 +191,9 @@ class SaveData {
     unlockedThemes: ['classic'],
     activeTheme: 'classic',
     triedThemes: [],
+    unlockedGrids: ['default'],
+    activeGrid: 'default',
+    triedGrids: [],
     streakCount: 0,
     lastStreakDay: 0,
     streakFreezeHeld: 0,
@@ -235,6 +246,9 @@ class SaveData {
     'unlockedThemes': unlockedThemes,
     'activeTheme': activeTheme,
     'triedThemes': triedThemes,
+    'unlockedGrids': unlockedGrids,
+    'activeGrid': activeGrid,
+    'triedGrids': triedGrids,
     'streakCount': streakCount,
     'lastStreakDay': lastStreakDay,
     'streakFreezeHeld': streakFreezeHeld,
@@ -334,6 +348,12 @@ class SaveData {
       final String themeActive = j['activeTheme'] is String
           ? (j['activeTheme'] as String)
           : 'classic';
+      final List<String> gridsOwned = readStrList(j['unlockedGrids']);
+      if (!gridsOwned.contains('default')) gridsOwned.insert(0, 'default');
+      final List<String> gridsTried = readStrList(j['triedGrids']);
+      final String gridActive = j['activeGrid'] is String
+          ? (j['activeGrid'] as String)
+          : 'default';
 
       return SaveData(
         classicUnlocked: classicUnlocked,
@@ -412,6 +432,9 @@ class SaveData {
         unlockedThemes: themesOwned,
         activeTheme: themeActive,
         triedThemes: themesTried,
+        unlockedGrids: gridsOwned,
+        activeGrid: gridActive,
+        triedGrids: gridsTried,
         streakCount: j['streakCount'] is num
             ? (j['streakCount'] as num).toInt()
             : 0,

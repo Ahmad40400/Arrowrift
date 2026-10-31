@@ -27,7 +27,11 @@ class BoardPainter extends CustomPainter {
 
     // Themed board panel (rounded board + grid dots). Classic = nothing drawn,
     // so the original look is untouched.
-    _paintPanel(canvas, size, cs, n);
+    // Custom grid shape (bought in the shop): NO boxes / panel / dots are
+    // drawn, the arrows alone form the shape. Square board = original panel.
+    if (!game.hasBoardShape) {
+      _paintPanel(canvas, size, cs, n);
+    }
 
     // Reference image jaisi patli line (Thin)
     final double lineWidth = max(cs * 0.055, 1.5);

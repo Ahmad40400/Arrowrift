@@ -65,6 +65,14 @@ class Eco {
   static const int premiumThemePrice = 15000;
   static const int themePreviewSeconds = 180;
 
+  // ----------------------------------------------------------------- GRIDS
+  // Custom board grids (visual only, same system as themes).
+  // Regular grids: Graph Paper, Blueprint, Crosshair, Checkerboard, Diamonds.
+  static const int gridPrice = 6000;
+  // Premium grids: Neon Lines, Orbit Rings, Glass Tiles, Stardust.
+  static const int premiumGridPrice = 10000;
+  static const int gridPreviewSeconds = 180;
+
   // --------------------------------------------------------- STARTER KIT
   static const int starterFreeze = 1;
   static const int starterHealth = 1;

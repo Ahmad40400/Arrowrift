@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../economy/economy_config.dart';
 import '../theme/app_theme.dart';
+import '../theme/grid_styles.dart';
 import '../models/arrow_model.dart';
 import '../services/save_storage.dart';
 import '../services/audio_manager.dart';
@@ -378,12 +379,109 @@ class GameProvider extends ChangeNotifier {
     return true;
   }
 
+  // ================================================================
+  // CUSTOM GRIDS  (visual only — same flow as themes: trial / buy / apply)
+  // ================================================================
+  List<String> unlockedGrids = [GridStyles.defaultId];
+  List<String> triedGrids = [];
+  String activeGridId = GridStyles.defaultId;
+  String? previewGridId;
+  final ValueNotifier<int> gridPreviewSecondsLeft = ValueNotifier<int>(0);
+  Timer? _gridPreviewTimer;
+  int _gridPreviewEndMs = 0;
+
+  GridStyle get currentGrid => GridStyles.byId(previewGridId ?? activeGridId);
+
+  bool get isPreviewingGrid => previewGridId != null;
+
+  bool isGridUnlocked(String id) =>
+      id == GridStyles.defaultId || unlockedGrids.contains(id);
+
+  bool hasTriedGrid(String id) => triedGrids.contains(id);
+
+  bool startGridPreview(String id) {
+    if (id == GridStyles.defaultId || isGridUnlocked(id) || hasTriedGrid(id)) {
+      return false;
+    }
+    if (!GridStyles.all.any((g) => g.id == id)) return false;
+    if (previewGridId != null) return false;
+    _gridPreviewTimer?.cancel();
+    triedGrids.add(id);
+    previewGridId = id;
+    _gridPreviewEndMs =
+        DateTime.now().millisecondsSinceEpoch + Eco.gridPreviewSeconds * 1000;
+    gridPreviewSecondsLeft.value = Eco.gridPreviewSeconds;
+    _gridPreviewTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final int left =
+          ((_gridPreviewEndMs - DateTime.now().millisecondsSinceEpoch) / 1000)
+              .ceil();
+      if (left <= 0) {
+        endGridPreview();
+      } else {
+        gridPreviewSecondsLeft.value = left;
+      }
+    });
+    _saveData();
+    notifyListeners();
+    return true;
+  }
+
+  void endGridPreview() {
+    _gridPreviewTimer?.cancel();
+    _gridPreviewTimer = null;
+    if (previewGridId == null) return;
+    previewGridId = null;
+    gridPreviewSecondsLeft.value = 0;
+    notifyListeners();
+  }
+
+  bool buyGrid(String id) {
+    if (id == GridStyles.defaultId || isGridUnlocked(id)) return false;
+    if (!GridStyles.all.any((g) => g.id == id)) return false;
+    final int gridCost = GridStyles.byId(id).price; // regular vs premium price
+    if (totalPoints < gridCost) return false;
+    totalPoints -= gridCost;
+    unlockedGrids.add(id);
+    activeGridId = id;
+    _gridPreviewTimer?.cancel();
+    _gridPreviewTimer = null;
+    previewGridId = null;
+    gridPreviewSecondsLeft.value = 0;
+
+    _addEventProgress('buy_shop', 1);
+    _addEventProgress('spend', gridCost);
+
+    _saveData();
+    notifyListeners();
+    return true;
+  }
+
+  bool setActiveGrid(String id) {
+    if (!isGridUnlocked(id)) return false;
+    activeGridId = id;
+    _gridPreviewTimer?.cancel();
+    _gridPreviewTimer = null;
+    previewGridId = null;
+    gridPreviewSecondsLeft.value = 0;
+
+    _saveData();
+    notifyListeners();
+    return true;
+  }
+
   int dailyLevelsCompleted = 0;
   int dailyArcadeGamesWon = 0;
   int lastDailyTaskDate = 0;
 
   List<ArrowModel> arrows = [];
   List<List<int>> owner = [];
+
+  // CUSTOM GRID SHAPE of the board that is on screen right now.
+  // Empty mask = normal square board (original behaviour).
+  List<List<bool>> boardMask = [];
+  String boardShapeId = GridStyles.defaultId;
+  bool get hasBoardShape => boardMask.isNotEmpty;
+  bool _isVoidCell(int x, int y) => boardMask.isNotEmpty && !boardMask[y][x];
   Map<int, LevelRecord> levelRecords = {};
 
   int _loadToken = 0;
@@ -439,6 +537,14 @@ class GameProvider extends ChangeNotifier {
       activeThemeId = isThemeUnlocked(saved.activeTheme)
           ? saved.activeTheme
           : 'classic';
+      unlockedGrids = List<String>.from(saved.unlockedGrids);
+      if (!unlockedGrids.contains(GridStyles.defaultId)) {
+        unlockedGrids.insert(0, GridStyles.defaultId);
+      }
+      triedGrids = List<String>.from(saved.triedGrids);
+      activeGridId = isGridUnlocked(saved.activeGrid)
+          ? saved.activeGrid
+          : GridStyles.defaultId;
       streakCount = saved.streakCount;
       lastStreakDay = saved.lastStreakDay;
       streakFreezeHeld = saved.streakFreezeHeld;
@@ -742,6 +848,9 @@ class GameProvider extends ChangeNotifier {
       unlockedThemes: List<String>.from(unlockedThemes),
       activeTheme: activeThemeId,
       triedThemes: List<String>.from(triedThemes),
+      unlockedGrids: List<String>.from(unlockedGrids),
+      activeGrid: activeGridId,
+      triedGrids: List<String>.from(triedGrids),
       streakCount: streakCount,
       lastStreakDay: lastStreakDay,
       streakFreezeHeld: streakFreezeHeld,
@@ -817,6 +926,13 @@ class GameProvider extends ChangeNotifier {
     previewThemeId = null;
     previewSecondsLeft.value = 0;
     _applyThemeGlobally();
+    unlockedGrids = [GridStyles.defaultId];
+    triedGrids = [];
+    activeGridId = GridStyles.defaultId;
+    _gridPreviewTimer?.cancel();
+    _gridPreviewTimer = null;
+    previewGridId = null;
+    gridPreviewSecondsLeft.value = 0;
     streakCount = 0;
     lastStreakDay = 0;
     streakFreezeHeld = 0;
@@ -909,6 +1025,7 @@ class GameProvider extends ChangeNotifier {
       gridSize = min(20, gridSize + 2);
     }
 
+    _setupBoardShape();
     _generate(level);
 
     totalTime = _timeForCurrentBoard();
@@ -933,7 +1050,8 @@ class GameProvider extends ChangeNotifier {
       // Per-arrow time hai, isliye boss ke ziada arrows ko khud time mil jata hai.
       return (arrows.length * 0.62).ceil() + 4;
     }
-    final int normalTime = getLevelTime(currentLevel) + 2 + (currentLevel ~/ 100);
+    final int normalTime =
+        getLevelTime(currentLevel) + 2 + (currentLevel ~/ 100);
     if (isBossNow) {
       // Normal board mein ~0.25 * n * n arrows hote hain. Boss ke arrows us
       // hisaab se barhe hain, to time bhi barabar scale hota hai (same pace).
@@ -1143,8 +1261,10 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     _timer?.cancel();
     _previewTimer?.cancel();
+    _gridPreviewTimer?.cancel();
     _popupAutoDismissTimer?.cancel();
     previewSecondsLeft.dispose();
+    gridPreviewSecondsLeft.dispose();
     super.dispose();
   }
 
@@ -1293,9 +1413,299 @@ class GameProvider extends ChangeNotifier {
   static const List<int> _dx = [0, 1, 0, -1];
   static const List<int> _dy = [-1, 0, 1, 0];
 
-  void _generate(int level) {
+  /// Picks the board shape for the level that is about to be generated.
+  /// Shapes are used only on normal Classic/Pro levels: tutorial, daily
+  /// challenge and boss levels always stay on the original square board.
+  void _setupBoardShape() {
+    boardMask = [];
+    boardShapeId = GridStyles.defaultId;
+    final GridStyle g = currentGrid;
+    if (g.isDefault) return;
+    if (isDailyChallenge || isBossNow || tutorialStep > 0) return;
+    final mask = GridStyles.buildMask(g, gridSize);
+    // safety: shape must keep enough cells to hold a real level
+    if (GridStyles.cellCount(mask) <
+        max(12, (gridSize * gridSize * 0.4).floor())) {
+      return;
+    }
+    boardMask = mask;
+    boardShapeId = g.id;
+  }
+
+  // ==========================================================================
+  // PERFECT-FILL GENERATOR FOR CUSTOM GRID SHAPES
+  // --------------------------------------------------------------------------
+  // Pehle arrows random place hote the aur shape ke andar kuch cells khali
+  // (holes) reh jate the. Ab shape ko pehle POORI tarah arrows se tile kiya
+  // jata hai (har playable cell kisi arrow ka hissa), phir arrows ki head ki
+  // taraf aisi chunni jati hai ke level hamesha solvable rahe. Square board
+  // (original) par is code ka koi asar nahi - wo purana _generate hi chalata hai.
+  // ==========================================================================
+  bool _generateShaped(int level) {
     final int n = gridSize;
-    final rnd = Random(level * 7919 + 104729 + n * 1000);
+    if (boardMask.length != n) return false;
+    final int shapeIdx =
+        1 + GridStyles.all.indexWhere((g) => g.id == boardShapeId);
+    const int minLen = 3;
+    final int maxLen = isProMode ? 6 : 5;
+
+    for (int attempt = 0; attempt < 80; attempt++) {
+      final rnd = Random(
+        level * 7919 + 104729 + n * 1000 + shapeIdx * 131 + attempt * 15485863,
+      );
+      final paths = _tileShape(n, rnd, minLen, maxLen);
+      if (paths == null) continue;
+      final oriented = _orientPaths(n, paths, rnd);
+      if (oriented == null) continue;
+
+      final newOwner = List.generate(n, (_) => List<int>.filled(n, -1));
+      final newArrows = <ArrowModel>[];
+      for (int i = 0; i < oriented.length; i++) {
+        final p = oriented[i];
+        final head = p[p.length - 1];
+        final prev = p[p.length - 2];
+        final dx = head.x - prev.x;
+        final dy = head.y - prev.y;
+        int dirIndex = 0;
+        for (int d = 0; d < 4; d++) {
+          if (_dx[d] == dx && _dy[d] == dy) dirIndex = d;
+        }
+        newArrows.add(
+          ArrowModel(
+            id: i,
+            cells: p,
+            direction: ArrowDirection.values[dirIndex],
+          ),
+        );
+        for (final c in p) {
+          newOwner[c.y][c.x] = i;
+        }
+      }
+
+      // safety: har playable cell arrow se bhara hona chahiye
+      bool full = true;
+      for (int y = 0; y < n && full; y++) {
+        for (int x = 0; x < n; x++) {
+          if (!_isVoidCell(x, y) && newOwner[y][x] == -1) {
+            full = false;
+            break;
+          }
+        }
+      }
+      if (!full) continue;
+
+      owner = newOwner;
+      arrows = newArrows;
+      return true;
+    }
+    return false; // fallback: purana generator
+  }
+
+  /// Shape ke har playable cell ko arrow-paths (2..maxLen cells) se cover karta
+  /// hai. Sabse tang (kam free padosi wale) cell se shuru hota hai taake
+  /// akela cell kabhi na bache.
+  List<List<GridCell>>? _tileShape(int n, Random rnd, int minLen, int maxLen) {
+    final own = List.generate(n, (_) => List<int>.filled(n, -1));
+    final paths = <List<GridCell>>[];
+    int remaining = 0;
+    for (int y = 0; y < n; y++) {
+      for (int x = 0; x < n; x++) {
+        if (!_isVoidCell(x, y)) remaining++;
+      }
+    }
+
+    bool free(int x, int y, Set<int>? used) {
+      if (x < 0 || y < 0 || x >= n || y >= n) return false;
+      if (_isVoidCell(x, y)) return false;
+      if (own[y][x] != -1) return false;
+      if (used != null && used.contains(y * n + x)) return false;
+      return true;
+    }
+
+    int freeNb(int x, int y, Set<int>? used) {
+      int k = 0;
+      for (int d = 0; d < 4; d++) {
+        if (free(x + _dx[d], y + _dy[d], used)) k++;
+      }
+      return k;
+    }
+
+    bool adjacent(GridCell c, int x, int y) =>
+        (c.x - x).abs() + (c.y - y).abs() == 1;
+
+    while (remaining > 0) {
+      int bx = -1, by = -1;
+      double bestScore = 1e9;
+      for (int y = 0; y < n; y++) {
+        for (int x = 0; x < n; x++) {
+          if (!free(x, y, null)) continue;
+          final double s = freeNb(x, y, null) + rnd.nextDouble();
+          if (s < bestScore) {
+            bestScore = s;
+            bx = x;
+            by = y;
+          }
+        }
+      }
+      if (bx < 0) break;
+
+      final int target =
+          minLen +
+          (pow(rnd.nextDouble(), 1.5).toDouble() * (maxLen - minLen + 1))
+              .floor();
+      final path = <GridCell>[GridCell(bx, by)];
+      final used = <int>{by * n + bx};
+      int lastD = -1;
+      while (path.length < target) {
+        final cur = path.last;
+        final opts = <int>[];
+        for (int d = 0; d < 4; d++) {
+          if (free(cur.x + _dx[d], cur.y + _dy[d], used)) opts.add(d);
+        }
+        if (opts.isEmpty) break;
+        int d;
+        if (opts.contains(lastD) && rnd.nextDouble() < 0.8) {
+          d = lastD;
+        } else {
+          opts.shuffle(rnd);
+          opts.sort(
+            (a, b) => freeNb(
+              cur.x + _dx[a],
+              cur.y + _dy[a],
+              used,
+            ).compareTo(freeNb(cur.x + _dx[b], cur.y + _dy[b], used)),
+          );
+          d = rnd.nextDouble() < 0.6
+              ? opts.first
+              : opts[rnd.nextInt(opts.length)];
+        }
+        lastD = d;
+        final nx = cur.x + _dx[d];
+        final ny = cur.y + _dy[d];
+        path.add(GridCell(nx, ny));
+        used.add(ny * n + nx);
+      }
+
+      if (path.length < 2) {
+        // akela cell: kisi padosi arrow ke end se jod do
+        final nbs = <int>[];
+        for (int d = 0; d < 4; d++) {
+          final nx = bx + _dx[d];
+          final ny = by + _dy[d];
+          if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+          if (_isVoidCell(nx, ny)) continue;
+          if (own[ny][nx] != -1) nbs.add(own[ny][nx]);
+        }
+        nbs.shuffle(rnd);
+        bool done = false;
+        for (final j in nbs) {
+          final p = paths[j];
+          if (adjacent(p.first, bx, by)) {
+            p.insert(0, GridCell(bx, by));
+            done = true;
+          } else if (adjacent(p.last, bx, by)) {
+            p.add(GridCell(bx, by));
+            done = true;
+          }
+          if (done) {
+            own[by][bx] = j;
+            break;
+          }
+        }
+        if (!done) return null;
+        remaining--;
+        continue;
+      }
+
+      final int id = paths.length;
+      paths.add(path);
+      for (final c in path) {
+        own[c.y][c.x] = id;
+        remaining--;
+      }
+    }
+    return remaining == 0 ? paths : null;
+  }
+
+  /// Har path ki head (kis taraf se nikalna hai) chunta hai. Bahar se andar
+  /// ki taraf "peel" karta hai: jis arrow ka raasta saaf ho wo nikal jata hai.
+  /// Agar sab nikal jayen to level 100% solvable hai.
+  List<List<GridCell>>? _orientPaths(
+    int n,
+    List<List<GridCell>> paths,
+    Random rnd,
+  ) {
+    final own = List.generate(n, (_) => List<int>.filled(n, -1));
+    for (int i = 0; i < paths.length; i++) {
+      for (final c in paths[i]) {
+        own[c.y][c.x] = i;
+      }
+    }
+    final alive = List<bool>.filled(paths.length, true);
+    final result = List<List<GridCell>>.generate(
+      paths.length,
+      (_) => <GridCell>[],
+    );
+    int left = paths.length;
+
+    bool rayClear(int i, List<GridCell> p) {
+      final head = p[p.length - 1];
+      final prev = p[p.length - 2];
+      final dx = head.x - prev.x;
+      final dy = head.y - prev.y;
+      int x = head.x + dx;
+      int y = head.y + dy;
+      while (x >= 0 && y >= 0 && x < n && y < n) {
+        final o = own[y][x];
+        if (o != -1 && o != i) return false;
+        x += dx;
+        y += dy;
+      }
+      return true;
+    }
+
+    bool changed = true;
+    while (left > 0 && changed) {
+      changed = false;
+      for (int i = 0; i < paths.length; i++) {
+        if (!alive[i]) continue;
+        final fwd = paths[i];
+        final rev = fwd.reversed.toList();
+        final bool flip = rnd.nextBool();
+        final first = flip ? rev : fwd;
+        final second = flip ? fwd : rev;
+        List<GridCell>? pick;
+        if (rayClear(i, first)) {
+          pick = first;
+        } else if (rayClear(i, second)) {
+          pick = second;
+        }
+        if (pick == null) continue;
+        result[i] = pick;
+        alive[i] = false;
+        left--;
+        changed = true;
+        for (final c in fwd) {
+          own[c.y][c.x] = -1;
+        }
+      }
+    }
+    return left == 0 ? result : null;
+  }
+
+  void _generate(int level) {
+    // Custom grid shape: poori shape arrows se bhari hoti hai (koi hole nahi).
+    if (hasBoardShape && _generateShaped(level)) return;
+    final int n = gridSize;
+    final rnd = Random(
+      level * 7919 +
+          104729 +
+          n * 1000 +
+          (boardMask.isNotEmpty
+              ? 131 *
+                    (1 + GridStyles.all.indexWhere((g) => g.id == boardShapeId))
+              : 0),
+    );
     owner = List.generate(n, (_) => List<int>.filled(n, -1));
     arrows = [];
     // Boss: chhote arrows (2-3 cells) => board par bohot ziada arrows.
@@ -1330,6 +1740,7 @@ class GameProvider extends ChangeNotifier {
           final nx = cur.x + _dx[d];
           final ny = cur.y + _dy[d];
           if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+          if (_isVoidCell(nx, ny)) continue; // outside the custom shape
           if (owner[ny][nx] != -1 || used.contains(ny * n + nx)) continue;
           opts.add(d);
         }
@@ -1385,6 +1796,7 @@ class GameProvider extends ChangeNotifier {
     final keyed = <MapEntry<GridCell, double>>[];
     for (int y = 0; y < n; y++) {
       for (int x = 0; x < n; x++) {
+        if (_isVoidCell(x, y)) continue; // no arrows outside the shape
         final dist = sqrt(pow(x - centre, 2) + pow(y - centre, 2));
         keyed.add(MapEntry(GridCell(x, y), dist + rnd.nextDouble() * n * 0.3));
       }

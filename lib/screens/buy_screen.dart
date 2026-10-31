@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../economy/economy_config.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
+import '../theme/grid_styles.dart';
 
 Color get _brand => AppTheme.brand;
 Color get _accent => AppTheme.accent;
@@ -15,6 +16,7 @@ class BuyScreen extends StatelessWidget {
 
   // Remembers open/closed state across rebuilds (context.watch rebuilds a lot).
   static bool _themeSectionExpanded = false;
+  static bool _gridSectionExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -146,22 +148,8 @@ class BuyScreen extends StatelessWidget {
           _buildFoldableThemesSection(context, game),
 
           SizedBox(height: 20),
-          Text(
-            'COMING SOON',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.dim(45),
-              letterSpacing: 1.5,
-            ),
-          ),
-          SizedBox(height: 12),
-          _buildComingSoonItem(
-            title: 'Custom Grids',
-            icon: Icons.grid_on_rounded,
-            color: Colors.orangeAccent,
-            eta: 'Q1 2026',
-          ),
+          _buildFoldableGridsSection(context, game),
+          SizedBox(height: 20),
         ],
       ),
     );
@@ -987,6 +975,615 @@ class BuyScreen extends StatelessWidget {
                           }
                         },
                         child: Text(
+                          'UNLOCK',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==================================================================
+  // CUSTOM GRIDS — same flow as themes: free trial / buy / apply
+  // ==================================================================
+  Widget _buildFoldableGridsSection(BuildContext context, GameProvider game) {
+    final int ownedCount = GridStyles.all
+        .where((g) => game.isGridUnlocked(g.id))
+        .length;
+    final int totalCount = GridStyles.all.length;
+    final bool showNewBadge = ownedCount <= 1;
+
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        final bool expanded = _gridSectionExpanded;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                _gridSectionExpanded = !_gridSectionExpanded;
+                setLocalState(() {});
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.grid_on_rounded, color: _brand, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'CUSTOM GRIDS',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.dim(45),
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                              if (showNewBadge) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.pinkAccent,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'NEW',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$ownedCount / $totalCount owned  •  tap to '
+                            '${expanded ? 'collapse' : 'expand'}',
+                            style: TextStyle(
+                              color: AppTheme.dim(54),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: expanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 250),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: AppTheme.dim(54),
+                        size: 26,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox(width: double.infinity, height: 0),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildGridCategoryHeader(game, premium: false),
+                    const SizedBox(height: 12),
+                    for (final g in GridStyles.regular) ...[
+                      _buildGridCard(context, game, g),
+                      const SizedBox(height: 12),
+                    ],
+                    const SizedBox(height: 8),
+                    _buildGridCategoryHeader(game, premium: true),
+                    const SizedBox(height: 12),
+                    for (final g in GridStyles.premium) ...[
+                      _buildGridCard(context, game, g),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                ),
+              ),
+              crossFadeState: expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 280),
+              sizeCurve: Curves.easeInOut,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildGridCategoryHeader(GameProvider game, {required bool premium}) {
+    final List<GridStyle> list = premium
+        ? GridStyles.premium
+        : GridStyles.regular;
+    final int owned = list.where((g) => game.isGridUnlocked(g.id)).length;
+    final int minPrice = list
+        .where((g) => !g.isDefault)
+        .map((g) => g.price)
+        .reduce((a, b) => a < b ? a : b);
+    final String trial =
+        'Try every grid for FREE once (${Eco.gridPreviewSeconds ~/ 60} min). ';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: premium
+            ? _premiumGold.withOpacity(0.10)
+            : _brand.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: premium
+              ? _premiumGold.withOpacity(0.55)
+              : _brand.withOpacity(0.18),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (premium)
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFFFD54F), _premiumGoldDeep],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                )
+              else
+                Icon(Icons.grid_view_rounded, color: _brand, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  premium ? 'PREMIUM GRIDS' : 'REGULAR GRIDS',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.3,
+                    color: premium ? _premiumGold : _ink,
+                  ),
+                ),
+              ),
+              Text(
+                '$owned / ${list.length} owned',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.dim(54),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            premium
+                ? 'Exclusive board shapes for a fresh challenge. $trial'
+                      'Own forever from ${_fmtCoins(minPrice)} coins.'
+                : '$trial'
+                      'Love it? Own it forever for '
+                      '${_fmtCoins(Eco.gridPrice)} coins.',
+            style: TextStyle(color: AppTheme.dim(54), fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGridCard(BuildContext context, GameProvider game, GridStyle g) {
+    final bool owned = game.isGridUnlocked(g.id);
+    final bool isOnScreen = game.currentGrid.id == g.id;
+    final bool isTrialRunning = game.previewGridId == g.id;
+    final bool isActive =
+        owned && game.activeGridId == g.id && !game.isPreviewingGrid;
+    final bool trialUsed = game.hasTriedGrid(g.id);
+    final Color tint = AppTheme.brand;
+
+    String status;
+    Color statusColor;
+    if (isTrialRunning) {
+      status = 'TRIAL RUNNING';
+      statusColor = Colors.orange;
+    } else if (isActive) {
+      status = 'ACTIVE';
+      statusColor = Colors.green;
+    } else if (owned) {
+      status = 'OWNED';
+      statusColor = Colors.green;
+    } else if (trialUsed) {
+      status = 'TRIAL USED';
+      statusColor = AppTheme.dim(54);
+    } else {
+      status = '1 FREE TRIAL';
+      statusColor = Colors.orange;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isOnScreen
+              ? tint
+              : (g.isPremium
+                    ? _premiumGold.withOpacity(0.55)
+                    : Colors.transparent),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: g.isPremium
+                ? _premiumGold.withOpacity(0.16)
+                : Colors.black.withOpacity(0.04),
+            blurRadius: g.isPremium ? 18 : 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: SizedBox(
+                      width: 84,
+                      height: 84,
+                      child: CustomPaint(
+                        painter: _GridThumbPainter(g, AppTheme.active),
+                      ),
+                    ),
+                  ),
+                  if (g.isPremium)
+                    Positioned(
+                      top: -6,
+                      left: -6,
+                      child: _buildPremiumCrownBadge(),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(g.icon, color: tint, size: 18),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            g.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                              color: _ink,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      g.tagline,
+                      style: TextStyle(fontSize: 12, color: AppTheme.dim(54)),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            status,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (owned)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isActive ? AppTheme.grey(300) : _brand,
+                  foregroundColor: isActive ? AppTheme.dim(54) : Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: isActive ? null : () => game.setActiveGrid(g.id),
+                icon: Icon(
+                  isActive
+                      ? Icons.check_circle_rounded
+                      : Icons.grid_view_rounded,
+                  size: 18,
+                ),
+                label: Text(
+                  isActive ? 'APPLIED' : 'APPLY GRID',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isTrialRunning ? _accent : _brand,
+                      side: BorderSide(
+                        color: (trialUsed && !isTrialRunning)
+                            ? AppTheme.grey(300)
+                            : (isTrialRunning ? _accent : _brand),
+                        width: 2,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: isTrialRunning
+                        ? () => game.endGridPreview()
+                        : (trialUsed || game.isPreviewingGrid
+                              ? null
+                              : () {
+                                  if (game.startGridPreview(g.id)) {
+                                    _showSuccessPopup(
+                                      context,
+                                      g.name,
+                                      g.icon,
+                                      tint,
+                                      title: 'Free trial started!',
+                                      message:
+                                          'Try ${g.name} for '
+                                          '${Eco.gridPreviewSeconds ~/ 60} minutes. '
+                                          'Open a level to see the full look!',
+                                    );
+                                  }
+                                }),
+                    icon: Icon(
+                      isTrialRunning
+                          ? Icons.stop_circle_outlined
+                          : Icons.visibility_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      isTrialRunning
+                          ? 'END TRIAL'
+                          : (trialUsed ? 'TRIAL USED' : 'TRY FREE'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _brand,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () => _confirmBuyGrid(context, game, g),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.monetization_on_rounded,
+                          color: Colors.amber,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          _fmtCoins(g.price),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmBuyGrid(BuildContext context, GameProvider game, GridStyle g) {
+    if (game.totalPoints < g.price) {
+      _showErrorPopup(
+        context,
+        'Not enough coins! ${g.name} costs ${_fmtCoins(g.price)} coins.',
+      );
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: _card,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(g.icon, color: _brand, size: 56),
+                const SizedBox(height: 14),
+                Text(
+                  'Unlock ${g.name}?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: _ink,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'It will be yours forever and applied right away.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppTheme.dim(54)),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.monetization_on_rounded,
+                      color: Colors.amber,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _fmtCoins(g.price),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: _ink,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.grey(300),
+                          foregroundColor: _ink,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text(
+                          'CANCEL',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () {
+                          final ok = game.buyGrid(g.id);
+                          Navigator.pop(dialogContext);
+                          if (ok) {
+                            _showSuccessPopup(
+                              context,
+                              g.name,
+                              g.icon,
+                              _brand,
+                              title: 'Grid unlocked!',
+                              message:
+                                  '${g.name} is now applied to your board.',
+                            );
+                          } else {
+                            _showErrorPopup(context, 'Not enough coins!');
+                          }
+                        },
+                        child: const Text(
                           'UNLOCK',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
@@ -2268,4 +2865,88 @@ class _ThemeThumbPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ThemeThumbPainter old) => old.t.id != t.id;
+}
+
+/// Small preview of a grid SHAPE: no boxes, only arrows that fill the shape
+/// (exactly how the real board looks).
+class _GridThumbPainter extends CustomPainter {
+  final GridStyle g;
+  final ArrowTheme t;
+  _GridThumbPainter(this.g, this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [t.bg, t.bg2],
+        ).createShader(rect),
+    );
+
+    const int n = 11;
+    final double m = size.width * 0.07;
+    final double cs = (size.width - m * 2) / n;
+
+    List<List<bool>> mask = GridStyles.buildMask(g, n);
+    if (mask.isEmpty) {
+      mask = List.generate(n, (_) => List<bool>.filled(n, true));
+    }
+
+    final line = Paint()
+      ..color = t.arrowInk
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    final head = Paint()..color = t.arrowInk;
+
+    canvas.save();
+    canvas.translate(m, m);
+    // fill every row with short arrows (alternating direction)
+    for (int y = 0; y < n; y++) {
+      int x = 0;
+      int k = 0;
+      while (x < n) {
+        if (!mask[y][x]) {
+          x++;
+          continue;
+        }
+        int e = x;
+        while (e + 1 < n && mask[y][e + 1] && e - x < 2) {
+          e++;
+        }
+        if (e > x) {
+          final bool right = (k + y) % 2 == 0;
+          final double cy = (y + 0.5) * cs;
+          final double x0 = (x + 0.5) * cs;
+          final double x1 = (e + 0.5) * cs;
+          final double hx = right ? x1 : x0;
+          final double dir = right ? 1 : -1;
+          canvas.drawLine(
+            Offset(right ? x0 : x1, cy),
+            Offset(hx - dir * cs * 0.15, cy),
+            line,
+          );
+          canvas.drawPath(
+            Path()
+              ..moveTo(hx + dir * cs * 0.2, cy)
+              ..lineTo(hx - dir * cs * 0.1, cy - cs * 0.26)
+              ..lineTo(hx - dir * cs * 0.1, cy + cs * 0.26)
+              ..close(),
+            head,
+          );
+          k++;
+        }
+        x = e + 1;
+      }
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _GridThumbPainter old) =>
+      old.g.id != g.id || old.t.id != t.id;
 }
