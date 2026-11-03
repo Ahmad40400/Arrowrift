@@ -628,7 +628,7 @@ Bump `SaveData.toJsonString()`'s `'v'` field and add migration logic in `SaveDat
 
 ## 📄 License
 
-Proprietary. All rights reserved. _(Update with your chosen license if releasing publicly.)_
+Proprietary. All rights reserved.
 
 ---
 
@@ -641,5 +641,7 @@ Proprietary. All rights reserved. _(Update with your chosen license if releasing
 ---
 
 **Arrowrift — Find the way out.** 🎯
+
+```
 
 ```
