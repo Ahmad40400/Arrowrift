@@ -284,6 +284,9 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     );
   }
 
+  // =========================================================================
+  // 🔧 FIXED THEME SWITCH SHEET (Height 85% + Scrollable List inside)
+  // =========================================================================
   void _showThemeQuickSwitchSheet(BuildContext context, GameProvider game) {
     final List<ArrowTheme> owned = AppTheme.all
         .where((t) => game.isThemeUnlocked(t.id))
@@ -295,61 +298,73 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
       isScrollControlled: true,
       builder: (sheetContext) {
         return Container(
+          // FIX: Screen ka 85% hissa cover karega taake adha na rukay
+          height: MediaQuery.of(context).size.height * 0.85,
           decoration: BoxDecoration(
             color: AppTheme.card,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: SafeArea(
             top: false,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppTheme.grey(300),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Icon(Icons.palette_rounded, color: _brand, size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Switch Theme',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: _ink,
+                // 1) HEADER (Fixed rehta hai, scroll nahi hota)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppTheme.grey(300),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                    ),
-                    Text(
-                      '${owned.length} owned',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.dim(54),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Icon(Icons.palette_rounded, color: _brand, size: 22),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Switch Theme',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: _ink,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${owned.length} owned',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.dim(54),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pick any theme you already own. Want more? Visit the Shop.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.dim(54)),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Pick any theme you already own. Want more? Visit the Shop.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.dim(54)),
-                ),
-                const SizedBox(height: 16),
-                Flexible(
+
+                // 2) SCROLLABLE LIST (Expanded lagaya hai taake scroll ho sake)
+                Expanded(
                   child: ListView.separated(
-                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     itemCount: owned.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
@@ -455,40 +470,43 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                     },
                   ),
                 ),
-                if (owned.length <= 1) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Colors.amber.withOpacity(0.4),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.lightbulb_rounded,
-                          color: Colors.amber.shade800,
-                          size: 20,
+
+                // 3) BOTTOM FOOTER (Sirf tab jab 1 hi theme ho)
+                if (owned.length <= 1)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.amber.withOpacity(0.4),
+                          width: 1.5,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'You only own the Classic theme. Unlock more in the Shop!',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.dim(87),
-                              fontWeight: FontWeight.w600,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lightbulb_rounded,
+                            color: Colors.amber.shade800,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'You only own the Classic theme. Unlock more in the Shop!',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.dim(87),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ],
               ],
             ),
           ),
