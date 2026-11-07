@@ -173,7 +173,7 @@ class _MemoryGameScreenState extends State<MemoryGameScreen> {
 
     final game = context.read<GameProvider>();
     game.addMinigameCoins(_earnedCoins);
-    game.recordArcadeGameWon(_seconds, _earnedCoins);
+    game.recordArcadeGameWon(_seconds, _earnedCoins, gameId: 'memory');
   }
 
   @override

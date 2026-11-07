@@ -101,7 +101,12 @@ class _TapTargetScreenState extends State<TapTargetScreen> {
 
     final game = context.read<GameProvider>();
     game.addMinigameCoins(_earnedCoins);
-    game.recordArcadeGameWon(10, _earnedCoins, won: _score >= 5);
+    game.recordArcadeGameWon(
+      10,
+      _earnedCoins,
+      won: _score >= 5,
+      gameId: 'tap_target',
+    );
   }
 
   @override

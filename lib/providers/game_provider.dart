@@ -85,6 +85,16 @@ class GameProvider extends ChangeNotifier {
   int arcadeGamesWon = 0;
   int maxArcadeCoinsEarned = 0;
 
+  // PER-GAME ARCADE RECORDS (game id -> best coins / rounds played)
+  Map<String, int> arcadeBestCoins = {};
+  Map<String, int> arcadePlays = {};
+
+  /// Best coins earned in one round of [gameId] (0 = never played).
+  int bestCoinsFor(String gameId) => arcadeBestCoins[gameId] ?? 0;
+
+  /// How many rounds of [gameId] were finished (0 = never played).
+  int playsFor(String gameId) => arcadePlays[gameId] ?? 0;
+
   // MINIGAME DAILY LIMIT
   int dailyMinigamesPlayed = 0;
   int lastMinigameDate = 0;
@@ -514,6 +524,8 @@ class GameProvider extends ChangeNotifier {
       arcadePlayTimeSeconds = saved.arcadePlayTimeSeconds;
       arcadeGamesWon = saved.arcadeGamesWon;
       maxArcadeCoinsEarned = saved.maxArcadeCoinsEarned;
+      arcadeBestCoins = Map<String, int>.from(saved.arcadeBestCoins);
+      arcadePlays = Map<String, int>.from(saved.arcadePlays);
 
       dailyMinigamesPlayed = saved.dailyMinigamesPlayed;
       lastMinigameDate = saved.lastMinigameDate;
@@ -831,6 +843,8 @@ class GameProvider extends ChangeNotifier {
       arcadePlayTimeSeconds: arcadePlayTimeSeconds,
       arcadeGamesWon: arcadeGamesWon,
       maxArcadeCoinsEarned: maxArcadeCoinsEarned,
+      arcadeBestCoins: arcadeBestCoins,
+      arcadePlays: arcadePlays,
       dailyMinigamesPlayed: dailyMinigamesPlayed,
       lastMinigameDate: lastMinigameDate,
       claimedTaskIds: claimedTaskIds,
@@ -906,6 +920,8 @@ class GameProvider extends ChangeNotifier {
     arcadePlayTimeSeconds = 0;
     arcadeGamesWon = 0;
     maxArcadeCoinsEarned = 0;
+    arcadeBestCoins = {};
+    arcadePlays = {};
     dailyMinigamesPlayed = 0;
     lastMinigameDate = 0;
     claimedTaskIds.clear();
@@ -2166,11 +2182,18 @@ class GameProvider extends ChangeNotifier {
     int timeSpentSeconds,
     int coinsEarned, {
     bool won = true,
+    String? gameId,
   }) {
     if (won) arcadeGamesWon++;
     arcadePlayTimeSeconds += timeSpentSeconds;
     if (coinsEarned > maxArcadeCoinsEarned) {
       maxArcadeCoinsEarned = coinsEarned;
+    }
+    if (gameId != null) {
+      arcadePlays[gameId] = (arcadePlays[gameId] ?? 0) + 1;
+      if (coinsEarned > (arcadeBestCoins[gameId] ?? 0)) {
+        arcadeBestCoins[gameId] = coinsEarned;
+      }
     }
     _checkDailyTaskReset();
     if (won) dailyArcadeGamesWon++;

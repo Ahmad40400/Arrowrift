@@ -37,6 +37,7 @@ class _ColorReflexScreenState extends State<ColorReflexScreen> {
   late String _correctColorName;
   late String _displayText;
   late List<String> _options;
+  bool _hasQuestion = false;
 
   int _score = 0;
   int _timeLeft = 15;
@@ -58,6 +59,7 @@ class _ColorReflexScreenState extends State<ColorReflexScreen> {
       _gameStarted = true;
       _gameFinished = false;
       _earnedCoins = 0;
+      _hasQuestion = false;
     });
     _generateNewQuestion();
 
@@ -73,32 +75,47 @@ class _ColorReflexScreenState extends State<ColorReflexScreen> {
     });
   }
 
+  // Stroop-style question:
+  //  * the WORD on screen is written in one colour (the INK colour = answer),
+  //  * the word itself NAMES a different colour (the "trap"),
+  //  * BOTH the ink colour and the colour named by the word are always among
+  //    the 4 options, so the player really has to choose (confusing on purpose),
+  //  * the 2 remaining options are random other colours.
   void _generateNewQuestion() {
-    final keys = _colorMap.keys.toList()..shuffle(_random);
+    final allNames = _colorMap.keys.toList();
 
-    _correctColorName = keys[0];
+    // Ink colour = correct answer. Avoid repeating the previous answer.
+    String ink;
+    do {
+      ink = allNames[_random.nextInt(allNames.length)];
+    } while (_hasQuestion && allNames.length > 1 && ink == _correctColorName);
 
-    final textKeys = _colorMap.keys.toList()..shuffle(_random);
-    _displayText = textKeys[0];
+    // The written word always names a DIFFERENT colour than its ink.
+    final others = allNames.where((n) => n != ink).toList()..shuffle(_random);
+    final String wordName = others.first;
 
-    final options = [_correctColorName];
-    final otherKeys = keys.sublist(1)..shuffle(_random);
-    options.addAll(otherKeys.take(3));
-    options.shuffle(_random);
+    // Options: ink colour + the colour the word names + 2 fillers.
+    final options = <String>[ink, wordName, ...others.skip(1).take(2)]
+      ..shuffle(_random);
 
+    _hasQuestion = true;
     setState(() {
+      _correctColorName = ink;
+      _displayText = wordName;
       _options = options;
     });
   }
 
   void _onOptionTap(String selectedName) {
     if (!_gameStarted || _gameFinished) return;
+    if (_timeLeft <= 0) return;
 
     if (selectedName == _correctColorName) {
       setState(() => _score++);
       _generateNewQuestion();
     } else {
-      setState(() => _timeLeft -= 1);
+      setState(() => _timeLeft = max(0, _timeLeft - 1));
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Wrong! -1 Second'),
@@ -125,7 +142,12 @@ class _ColorReflexScreenState extends State<ColorReflexScreen> {
 
     final game = context.read<GameProvider>();
     game.addMinigameCoins(_earnedCoins);
-    game.recordArcadeGameWon(15, _earnedCoins, won: _score >= 4);
+    game.recordArcadeGameWon(
+      15,
+      _earnedCoins,
+      won: _score >= 4,
+      gameId: 'color_reflex',
+    );
   }
 
   @override
@@ -228,6 +250,26 @@ class _ColorReflexScreenState extends State<ColorReflexScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
+                    'SCORE: $_score',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                      color: _accent,
+                    ),
+                  ),
+                  SizedBox(height: 14),
+                  Text(
+                    'Tap the INK COLOR of this word',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.dim(54),
+                    ),
+                  ),
+                  SizedBox(height: 18),
+                  Text(
                     _displayText,
                     style: TextStyle(
                       fontSize: 56,
@@ -236,7 +278,7 @@ class _ColorReflexScreenState extends State<ColorReflexScreen> {
                       letterSpacing: 4,
                     ),
                   ),
-                  SizedBox(height: 60),
+                  SizedBox(height: 48),
                   GridView.builder(
                     shrinkWrap: true,
                     physics: NeverScrollableScrollPhysics(),
@@ -255,6 +297,10 @@ class _ColorReflexScreenState extends State<ColorReflexScreen> {
                           decoration: BoxDecoration(
                             color: _colorMap[colorName],
                             borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.35),
+                              width: 2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: _colorMap[colorName]!.withOpacity(0.4),

@@ -43,6 +43,9 @@ class SaveData {
   final int arcadePlayTimeSeconds;
   final int arcadeGamesWon;
   final int maxArcadeCoinsEarned;
+  // PER-GAME ARCADE RECORDS (game id -> best coins / rounds played)
+  final Map<String, int> arcadeBestCoins;
+  final Map<String, int> arcadePlays;
 
   // MINIGAME DAILY LIMIT
   final int dailyMinigamesPlayed;
@@ -120,6 +123,8 @@ class SaveData {
     this.arcadePlayTimeSeconds = 0,
     this.arcadeGamesWon = 0,
     this.maxArcadeCoinsEarned = 0,
+    this.arcadeBestCoins = const {},
+    this.arcadePlays = const {},
     this.dailyMinigamesPlayed = 0,
     this.lastMinigameDate = 0,
     this.claimedTaskIds = const [],
@@ -174,6 +179,8 @@ class SaveData {
     arcadePlayTimeSeconds: 0,
     arcadeGamesWon: 0,
     maxArcadeCoinsEarned: 0,
+    arcadeBestCoins: {},
+    arcadePlays: {},
     dailyMinigamesPlayed: 0,
     lastMinigameDate: 0,
     claimedTaskIds: [],
@@ -229,6 +236,8 @@ class SaveData {
     'arcadePlayTimeSeconds': arcadePlayTimeSeconds,
     'arcadeGamesWon': arcadeGamesWon,
     'maxArcadeCoinsEarned': maxArcadeCoinsEarned,
+    'arcadeBestCoins': arcadeBestCoins,
+    'arcadePlays': arcadePlays,
     'dailyMinigamesPlayed': dailyMinigamesPlayed,
     'lastMinigameDate': lastMinigameDate,
     'claimedTaskIds': claimedTaskIds,
@@ -280,6 +289,16 @@ class SaveData {
               out.add(Map<String, dynamic>.from(item));
             }
           }
+        }
+        return out;
+      }
+
+      Map<String, int> readIntMap(dynamic raw) {
+        final out = <String, int>{};
+        if (raw is Map) {
+          raw.forEach((k, v) {
+            if (v is num) out[k.toString()] = v.toInt();
+          });
         }
         return out;
       }
@@ -391,6 +410,8 @@ class SaveData {
         maxArcadeCoinsEarned: j['maxArcadeCoinsEarned'] is num
             ? (j['maxArcadeCoinsEarned'] as num).toInt()
             : 0,
+        arcadeBestCoins: readIntMap(j['arcadeBestCoins']),
+        arcadePlays: readIntMap(j['arcadePlays']),
         dailyMinigamesPlayed: j['dailyMinigamesPlayed'] is num
             ? (j['dailyMinigamesPlayed'] as num).toInt()
             : 0,
