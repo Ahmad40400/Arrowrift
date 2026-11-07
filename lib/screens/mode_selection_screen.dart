@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
+import '../economy/economy_config.dart';
 import '../providers/game_provider.dart';
 import '../services/tutorial_manager.dart';
 import 'level_screen.dart';
@@ -533,14 +534,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
   }
 
   // ===================== HOME TAB =====================
-  //
-  // 🔧 BULLETPROOF LAYOUT (logic unchanged):
-  //   - SingleChildScrollView lagaya hai: chhoti screens pe content scroll hoga,
-  //     kabhi overflow nahi hoga.
-  //   - ConstrainedBox(minHeight: available height) lagaya hai taake badi
-  //     screens pe content vertically fill ho aur scroll na dikhe.
-  //   - Mode cards ab Expanded ke bajaye fixed-height SizedBox ke andar hain.
-  //     Agar zyada jagah bachi ho toh Centre align honge, kam ho toh scroll.
   Widget _buildHomeTab(BuildContext context, GameProvider game) {
     final int todaySeed = game.todayStamp;
     final bool isCompleted = game.lastDailyCompletedDate == todaySeed;
@@ -561,9 +554,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Chhoti screens pe mode cards ki minimum height 260dp hai.
-        // Agar available height kaafi hai, cards minimum ke saath expand
-        // honge; agar kam hai, scroll ho jayega.
         const double _minModeCardHeight = 260;
 
         return SingleChildScrollView(
@@ -580,7 +570,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                   _buildTitleBlock(game),
                   const SizedBox(height: 16),
 
-                  // Daily Card (intrinsic height, safe)
+                  // Daily Card
                   _buildDailyCard(
                     context,
                     game,
@@ -594,8 +584,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Mode Cards — fixed minimum height so they never squash,
-                  // and if space allows they grow to fill available room.
+                  // Mode Cards
                   _buildModeCardsRow(
                     context: context,
                     game: game,
@@ -629,8 +618,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     required double classicProgress,
     required double proProgress,
   }) {
-    // Agar screen bahut lambi hai (tablet / big phone), cards thodi si badi
-    // dikhein — lekin 360 se zyada nahi, warna art stretched lagega.
     final double rowHeight = minHeight.clamp(minHeight, 360.0).toDouble();
 
     return Center(
@@ -652,7 +639,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                   progressLabel: 'Lv ${game.classicUnlockedLevel}',
                   tutorialKey: TutorialManager.classicCardKey,
                   onTap: () {
-                    // TUTORIAL: Classic card tapped -> Level 1 step.
                     if (game.tutorialStep == TutorialManager.stepClassicMode) {
                       game.setTutorialStep(TutorialManager.stepLevel1);
                     }
@@ -699,8 +685,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     );
   }
 
-  // Same header pattern as Stats / Arcade / Shop / Settings tabs.
-  // Right side: 3D EVENTS icon (new — original layout untouched on left).
   Widget _buildTitleBlock(GameProvider game) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,7 +723,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
           padding: const EdgeInsets.only(top: 2, right: 2),
           child: _EventsOrbButton(
             onTap: () {
-              // Event full screen par navigate karo
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const EventsScreen()),
@@ -752,17 +735,32 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     );
   }
 
-  // Red dot toggle — real events state check karega
+  // ---------------------------------------------------------------
+  // EVENTS BADGE LOGIC
+  // ---------------------------------------------------------------
   bool _hasUnclaimedEvent(GameProvider game) {
-    final event = game.currentEvent;
-    if (event == null) return false;
-    final isCompleted = game.eventProgress >= event.target;
-    final isClaimed = game.claimedEventIds.contains(event.id);
-    return isCompleted && !isClaimed;
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    final GameEvent liveEvent = EventConfig.getActiveEvent(now);
+    final bool isClaimed = game.claimedEventIds.contains(liveEvent.id);
+
+    // If already claimed -> nothing to show.
+    if (isClaimed) return false;
+
+    final GameEvent? syncedEvent = game.currentEvent;
+
+    // Provider hasn't synced to the live event yet -> brand new event.
+    if (syncedEvent == null) return true;
+
+    // Brand new event: player hasn't tapped START EVENT yet.
+    if (!game.isEventActive) return true;
+
+    // In progress but completed -> reward ready to claim.
+    if (game.eventProgress >= liveEvent.target) return true;
+
+    return false;
   }
 
   // ===================== DAILY CHALLENGE =====================
-  // FEATURE #1: Countdown timer (midnight reset) — todayStamp ke saath consistent.
   Widget _buildDailyCard(
     BuildContext context,
     GameProvider game, {
@@ -902,8 +900,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     );
   }
 
-  // Midnight reset tak ka time — GameProvider.todayStamp local midnight pe
-  // flip hota hai, isliye countdown bhi local midnight target karta hai.
   String _dailyResetCountdown() {
     final DateTime now = DateTime.now();
     final DateTime nextMidnight = DateTime(
@@ -1183,11 +1179,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     );
   }
 
-  // FEATURE #2: Ek hi affordance — poora card tappable.
-  //
-  // 🔧 Layout fix: card ke andar ab FittedBox(scaleDown) wrap hai taake agar
-  // height kam ho toh saara content proportionally shrink ho jaye — kuch
-  // cut/overflow na ho.
   Widget _buildModeCard({
     required String title,
     required String subtitle,
@@ -1222,7 +1213,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
           borderRadius: BorderRadius.circular(24),
           child: Stack(
             children: [
-              // soft decorative circles (depth without noise)
               Positioned(
                 top: -34,
                 right: -34,
@@ -1247,8 +1237,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                   ),
                 ),
               ),
-              // 🔧 FittedBox ke saath content ko wrap kiya taake chhoti
-              // heights pe bhi poora content scale ho jaye (never cut).
               Positioned.fill(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -1363,9 +1351,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                             ),
                           ],
                           const SizedBox(height: 12),
-                          // Single affordance: poora card tappable, ye strip
-                          // sirf visual cue hai (button jaisa behavior nahi —
-                          // koi separate onTap nahi).
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
@@ -1478,9 +1463,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     );
   }
 
-  // =========================================================================
-  // NEW: DAILY PRO TIPS BANNER (For Old Users)
-  // =========================================================================
   Widget _buildProTipsBanner(GameProvider game) {
     final List<Map<String, dynamic>> tips = [
       {
@@ -1515,7 +1497,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
       },
     ];
 
-    // FIX: todayStamp ko game object se access kiya hai aur error hata diya hai
     final int todaySeed = game.todayStamp;
     final Map<String, dynamic> todayTip = tips[todaySeed % tips.length];
     final Color tint = todayTip['color'] as Color;
@@ -1532,7 +1513,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -1542,12 +1522,10 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
             child: Icon(todayTip['icon'] as IconData, color: tint, size: 22),
           ),
           const SizedBox(width: 12),
-          // Text Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tip of the Day Header
                 Text(
                   'TIP OF THE DAY',
                   style: TextStyle(
@@ -1558,7 +1536,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                // Title
                 Text(
                   todayTip['title'] as String,
                   style: TextStyle(
@@ -1568,7 +1545,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                // Description
                 Text(
                   todayTip['text'] as String,
                   style: TextStyle(
@@ -1619,7 +1595,6 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
       behavior: HitTestBehavior.opaque,
       onTap: () {
         setState(() => _currentIndex = index);
-        // TUTORIAL: only the highlighted tab moves the tour forward.
         context.read<GameProvider>().onTutorialTabSelected(index);
       },
       child: AnimatedContainer(
@@ -1707,17 +1682,33 @@ class _EventsOrbButtonState extends State<_EventsOrbButton>
                 size: const Size(76, 76),
                 painter: _EventsCalendarPainter(),
               ),
+              // Pulsing Red Dot for new/unclaimed events
               if (widget.hasNew)
                 Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _card, width: 1.5),
+                  top: 6,
+                  right: 8,
+                  child: AnimatedBuilder(
+                    animation: _c,
+                    builder: (context, child) {
+                      final double t = Curves.easeInOut.transform(_c.value);
+                      final double pulse = 1.0 + t * 0.35;
+                      return Transform.scale(scale: pulse, child: child);
+                    },
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: _card, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.redAccent.withOpacity(0.4),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

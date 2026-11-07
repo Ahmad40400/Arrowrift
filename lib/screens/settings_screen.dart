@@ -151,27 +151,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               size: 16,
               color: AppTheme.grey(500),
             ),
-            onTap: () {
-              showAboutDialog(
-                context: context,
-                applicationName: 'Arrowrift',
-                applicationVersion: 'v1.0.0',
-                applicationIcon: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: _brand,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.arrow_upward_rounded, color: _accent),
-                ),
-                children: [
-                  Text(
-                    'A relaxing puzzle game where every arrow leads somewhere. Find your way through hundreds of complex mazes!',
-                  ),
-                ],
-              );
-            },
+            onTap: () => _showAboutDialog(context),
           ),
         ],
       ),
@@ -233,6 +213,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ---------------------------------------------------------
+  // CUSTOM ABOUT DIALOG
+  // Replaces Flutter's showAboutDialog to fix the logo
+  // and make the "View licenses" button actually work.
+  // ---------------------------------------------------------
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AboutDialog(
+          applicationName: 'Arrowrift',
+          applicationVersion: 'v1.0.0',
+          // Replaced the basic Icon with your actual game logo
+          applicationIcon: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1B1B3A), // Classic brand dark blue
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF1B1B3A).withOpacity(0.4),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: CustomPaint(painter: _AboutLogoPainter()),
+          ),
+          children: [
+            const SizedBox(height: 12),
+            Text(
+              'A relaxing puzzle game where every arrow leads somewhere. Find your way through hundreds of complex mazes!',
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppTheme.dim(87),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildSettingItem({
     required IconData icon,
     required String title,
@@ -283,4 +308,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+}
+
+// =========================================================
+// ABOUT LOGO PAINTER
+// Exact copy of the main Home screen logo
+// =========================================================
+class _AboutLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth =
+          4.5 // Scaled for the smaller box
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final accentPaint = Paint()
+      ..color =
+          const Color(0xFFE53935) // Brand red
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(size.width * 0.2, size.height * 0.8);
+    path.lineTo(size.width * 0.2, size.height * 0.3);
+    path.lineTo(size.width * 0.5, size.height * 0.3);
+    path.lineTo(size.width * 0.5, size.height * 0.7);
+    path.lineTo(size.width * 0.8, size.height * 0.7);
+    path.lineTo(size.width * 0.8, size.height * 0.5);
+    canvas.drawPath(path, paint);
+
+    final tip = Offset(size.width * 0.8, size.height * 0.5);
+    final arrowPath = Path()
+      ..moveTo(tip.dx + 4, tip.dy)
+      ..lineTo(tip.dx - 6, tip.dy - 8)
+      ..lineTo(tip.dx - 6, tip.dy + 8)
+      ..close();
+    canvas.drawPath(arrowPath, accentPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
